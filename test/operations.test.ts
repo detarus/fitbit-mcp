@@ -66,6 +66,21 @@ describe("durable meal operations", () => {
       expect((await stat(dir)).mode & 0o777).toBe(0o700);
     }
   });
+  it("holds the session lock across account-bound writes", async () => {
+    const input = meal(); await ops.preview("meal", input);
+    const order: string[] = [];
+    const create = api.create.bind(api);
+    vi.spyOn(api, "create").mockImplementation(async (type, body) => {
+      order.push("create");
+      await new Promise(r => setTimeout(r, 30));
+      return create(type, body);
+    });
+    const saving = ops.commit(input.requestId, true);
+    await new Promise(r => setTimeout(r, 10));
+    const switching = store.locked("session", async () => { order.push("switch-account"); });
+    await Promise.all([saving, switching]);
+    expect(order).toEqual(["create", "switch-account"]);
+  });
   it("logs and removes water through the same journal", async () => {
     const requestId = randomUUID(); await ops.preview("water", { requestId, at: "2026-10-17T13:00:00Z", milliliters: 250 });
     expect((await ops.commit(requestId, true)).items[0].state).toBe("verified");

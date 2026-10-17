@@ -39,7 +39,7 @@ export class Store {
   async write(name: string, value: unknown) {
     const target = this.path(name), temp = this.path(name + "." + randomUUID() + ".tmp");
     try {
-      await writeFile(temp, JSON.stringify(value, null, 2) + "\n", { mode: 0o600, flag: "wx" });
+      await writeFile(temp, JSON.stringify(value, null, 2) + "\n", { mode: 0o600, flag: "wx", flush: true });
       await rename(temp, target);
     } finally { await rm(temp, { force: true }); }
   }

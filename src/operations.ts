@@ -29,7 +29,7 @@ export class Operations {
   async preview(kind: "meal" | "water", input: unknown) {
     const parsed = kind === "meal" ? mealSchema.parse(input) : waterSchema.parse(input);
     const id = parsed.requestId;
-    return this.store.locked(this.file(id), async () => {
+    return this.store.locked("session", () => this.store.locked(this.file(id), async () => {
       const account = await this.account(), fingerprint = digest(parsed);
       const existing = await this.store.read<Operation>(this.file(id));
       if (existing) {
@@ -43,12 +43,12 @@ export class Operations {
       const op: Operation = { id, kind: kind === "meal" ? "nutrition-log" : "hydration-log", account, fingerprint, createdAt: new Date().toISOString(), preview: parsed, items: bodies.map(body => ({ body, state: "pending" })) };
       await this.store.write(this.file(id), op);
       return this.result(op);
-    });
+    }));
   }
   async commit(id: string, confirm: boolean) {
     if (!confirm) throw new AppError("CONFIRM_REQUIRED", "Show the preview and get explicit intent to save before committing.");
     if (!await this.canWrite()) throw new AppError("WRITE_DISABLED", "Nutrition writes are disabled. Run setup with --nutrition-write and then auth.");
-    return this.store.locked(this.file(id), async () => {
+    return this.store.locked("session", () => this.store.locked(this.file(id), async () => {
       const op = await this.load(id);
       if (op.cancelled) throw new AppError("CANCELLED", "This preview was cancelled or its records were removed. Create a new request ID for a new meal.");
       for (const item of op.items) {
@@ -84,20 +84,20 @@ export class Operations {
         }
       }
       return this.result(op);
-    });
+    }));
   }
   async status(id: string) { return this.result(await this.load(id)); }
   async cancel(id: string) {
-    return this.store.locked(this.file(id), async () => {
+    return this.store.locked("session", () => this.store.locked(this.file(id), async () => {
       const op = await this.load(id);
       if (op.items.some(i => i.state !== "pending")) throw new AppError("NOT_A_DRAFT", "Only an untouched draft can be cancelled. Use remove for known created records.");
       op.cancelled = true; await this.store.write(this.file(id), op); return this.result(op);
-    });
+    }));
   }
   async remove(id: string, confirm: boolean) {
     if (!confirm) throw new AppError("CONFIRM_REQUIRED", "Explicit intent to remove this operation's records is required.");
     if (!await this.canWrite()) throw new AppError("WRITE_DISABLED", "Nutrition writes are disabled.");
-    return this.store.locked(this.file(id), async () => {
+    return this.store.locked("session", () => this.store.locked(this.file(id), async () => {
       const op = await this.load(id);
       for (const item of op.items) {
         if (item.state === "pending" || item.state === "deleted") continue;
@@ -116,6 +116,6 @@ export class Operations {
         await this.store.write(this.file(id), op);
       }
       op.cancelled = true; await this.store.write(this.file(id), op); return this.result(op);
-    });
+    }));
   }
 }

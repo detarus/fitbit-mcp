@@ -35,7 +35,7 @@ The directory contains OAuth configuration, tokens and minimal write journals wi
 
 ## Write semantics
 
-Preview is a local immutable operation keyed by a UUID. Each occurrence of a meal gets a new UUID; retries reuse it. The journal binds to a hash of OAuth client plus Google Health user identity, and demo/live filenames are separate.
+Preview is a local immutable operation keyed by a UUID. Each occurrence of a meal gets a new UUID; retries reuse it. Setup, sign-in, disconnect and write operations share a cross-process session lock so account changes cannot race a write. The journal binds to a hash of OAuth client plus Google Health user identity, and demo/live filenames are separate.
 
 Each item moves pending → sending → created → verified. Persist sending before the external call. Unknown outcomes and crash-persisted sending states are never blindly replayed. Known created records can be read again without creating them again. A 24-hour age limit applies only to pending items.
 

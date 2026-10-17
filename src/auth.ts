@@ -37,16 +37,16 @@ export class Auth {
     catch { throw new AppError("CONFIG", "Cannot read credentials JSON. Download a Desktop app OAuth client."); }
     if (!input.installed) throw new AppError("CONFIG", "Use a Desktop app OAuth client, not a Web application client.");
     const config = configSchema.parse({ clientId: input.installed.client_id, clientSecret: input.installed.client_secret, nutritionWrite });
-    await this.store.locked("auth", async () => {
+    await this.store.locked("session", () => this.store.locked("auth", async () => {
       await this.store.write("config.json", config);
       // A changed client/scope configuration must never reuse old account authorization.
       await this.store.remove("tokens.json");
-    });
+    }));
     return { configured: true, nutritionWrite, next: "Run auth in your terminal." };
   }
   async login(open = true) {
     const config = await this.config();
-    return this.store.locked("auth", async () => {
+    return this.store.locked("session", () => this.store.locked("auth", async () => {
       const state = randomBytes(32).toString("hex");
       const server = createServer();
       await new Promise<void>((resolve, reject) => {
@@ -100,7 +100,7 @@ export class Auth {
         if (e instanceof AppError) throw e;
         throw new AppError("OAUTH", "Google sign-in failed. Check API enablement, consent screen, test user, and Desktop client.");
       } finally { server.closeAllConnections(); server.close(); }
-    });
+    }));
   }
   async record() { return this.store.read<TokenRecord>("tokens.json"); }
   async accessToken(force = false): Promise<string> {
@@ -128,9 +128,9 @@ export class Auth {
     if (!record?.scopes.includes(scopePrefix + scope)) throw new AppError("MISSING_SCOPE", "Missing Google permission: " + scope + ". Update consent and run auth again.");
   }
   async disconnect() {
-    return this.store.locked("auth", async () => {
+    return this.store.locked("session", () => this.store.locked("auth", async () => {
       await this.store.remove("tokens.json");
       return { disconnectedLocally: true, remoteGrantRevoked: false, note: "Revoke the app separately in Google Account > Security > Third-party connections. Local write journals remain for reconciliation." };
-    });
+    }));
   }
 }
