@@ -2,7 +2,7 @@
 
 Local Fitbit MCP via Google Health API, with read tools, reviewed meal/water writes, and shared skills for Codex and Claude Code.
 
-**Status: [alpha.3 prerelease available](https://github.com/detarus/fitbit-mcp/releases/tag/v0.1.0-alpha.3); real-account validation pending. No npm registry publication.** [Validation and tested package artifacts](docs/VALIDATION.md). Planned work is tracked in [ROADMAP.md](ROADMAP.md).
+**Status: [alpha.4 prerelease](https://github.com/detarus/fitbit-mcp/releases/tag/v0.1.0-alpha.4); real-account validation pending. No npm registry publication.** [Validation and tested package artifacts](docs/VALIDATION.md). Planned work is tracked in [ROADMAP.md](ROADMAP.md).
 
 ## Try it
 

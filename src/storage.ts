@@ -26,10 +26,10 @@ export class Store {
         const script = [
           "$ErrorActionPreference='Stop'",
           "$sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User",
-          "$acl=New-Object System.Security.AccessControl.DirectorySecurity",
+          "$acl=[System.Security.AccessControl.DirectorySecurity]::new()",
           "$acl.SetOwner($sid)",
           "$acl.SetAccessRuleProtection($true,$false)",
-          "$rule=New-Object System.Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')",
+          "$rule=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,[System.Security.AccessControl.FileSystemRights]::FullControl,[System.Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit',[System.Security.AccessControl.PropagationFlags]::None,[System.Security.AccessControl.AccessControlType]::Allow)",
           "$acl.AddAccessRule($rule)",
           "Set-Acl -LiteralPath $env:FITBIT_MCP_ACL_PATH -AclObject $acl",
         ].join("; ");

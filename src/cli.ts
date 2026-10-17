@@ -69,8 +69,11 @@ async function main() {
       output = await api.points(type, range.startDate, range.endDate);
     } else if (command === "install") {
       if (values.client === "claude-desktop") {
-        if (values["skills-only"]) throw new Error("--skills-only applies to codex or claude, not Claude Desktop"); output = await installDesktop(undefined, demo); }
+        if (values["skills-only"]) throw new Error("--skills-only applies to codex or claude, not Claude Desktop");
+        output = await installDesktop(undefined, demo);
+      }
       else {
+      if (values.demo) throw new Error("--demo installation is supported only for claude-desktop; use serve --demo for manual CLI registration");
       if (!["codex", "claude"].includes(values.client || "")) throw new Error("Choose --client codex, claude or claude-desktop");
       const client = values.client as ClientName;
       output = await store.locked("install", async () => {

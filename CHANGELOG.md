@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.4 — 2026-10-17
+
+- Add Claude Desktop configuration installation with conflict detection, backups and repeat-install safety.
+- Expose three shared MCP prompts; fix standalone setup skill links.
+- Harden existing local state permissions, Windows ACLs and link/type checks.
+- Extend synthetic workflow and installed-package scenarios; document read capabilities, chat clients and remaining acceptance dependencies.
+- Real Google account, Desktop UI and photo-to-diary acceptance remain pending.
+
 ## 0.1.0-alpha.3 — 2026-10-17
 
 - Add personal-relative recovery v1: 28-day baseline, sleep/HRV/resting pulse, coverage gates and factor explanations. This is our unvalidated heuristic, not Fitbit Daily Readiness.

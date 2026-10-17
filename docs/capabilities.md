@@ -7,7 +7,7 @@ Schema reference: src/schema.ts; transport: src/api.ts; summaries: src/reports.t
 | steps, distance, total-calories, active-zone-minutes | Raw provider records; normalized daily activity totals with coverage | activity_and_fitness.readonly |
 | exercise | Raw provider exercise records and pagination; no normalized workout summary or inferred workout classification | activity_and_fitness.readonly |
 | sleep | Raw intervals/stages when supplied; normalized sleep minutes and overlap handling | sleep.readonly |
-| heart-rate | Raw samples; normalized daily heart statistics | health_metrics_and_measurements.readonly |
+| heart-rate | Raw provider samples; daily summaries use resting pulse/HRV | health_metrics_and_measurements.readonly |
 | daily-resting-heart-rate, daily-heart-rate-variability | Raw daily values; normalized RHR/HRV and optional recovery inputs | health_metrics_and_measurements.readonly |
 | daily-oxygen-saturation, daily-respiratory-rate, daily-sleep-temperature-derivations | Raw records; normalized SpO2, respiratory rate and signed skin-temperature delta | health_metrics_and_measurements.readonly |
 | nutrition-log, hydration-log | Raw diary records; reviewed meal/water write workflows separately | nutrition.readonly |

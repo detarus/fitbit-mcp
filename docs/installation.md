@@ -4,16 +4,16 @@ Requires Node.js 24 LTS, npm, and the official Codex or Claude Code CLI on your 
 
 ## Release package
 
-Download `detarus-fitbit-mcp-0.1.0-alpha.3.tgz` and `SHA256SUMS` from the [alpha.3 release](https://github.com/detarus/fitbit-mcp/releases/tag/v0.1.0-alpha.3) into one directory. Alpha is intended for testing; real-account validation is pending. Check the file hash against SHA256SUMS:
+Download `detarus-fitbit-mcp-0.1.0-alpha.4.tgz` and `SHA256SUMS` from the [alpha.4 release](https://github.com/detarus/fitbit-mcp/releases/tag/v0.1.0-alpha.4) into one directory. Alpha is intended for testing; real-account validation is pending. Check the file hash against SHA256SUMS:
 
-- macOS: `shasum -a 256 detarus-fitbit-mcp-0.1.0-alpha.3.tgz`
+- macOS: `shasum -a 256 detarus-fitbit-mcp-0.1.0-alpha.4.tgz`
 - Linux: `sha256sum -c SHA256SUMS`
-- Windows PowerShell: `Get-FileHash .\detarus-fitbit-mcp-0.1.0-alpha.3.tgz -Algorithm SHA256`
+- Windows PowerShell: `Get-FileHash .\detarus-fitbit-mcp-0.1.0-alpha.4.tgz -Algorithm SHA256`
 
 Then, from that directory on any OS:
 
 ```sh
-npm install --global ./detarus-fitbit-mcp-0.1.0-alpha.3.tgz
+npm install --global ./detarus-fitbit-mcp-0.1.0-alpha.4.tgz
 fitbit-mcp demo-check
 fitbit-mcp recovery --demo --date 2026-10-17
 fitbit-mcp install --client codex
@@ -53,3 +53,7 @@ Run `fitbit-mcp disconnect` to remove local tokens and revoke the Google grant s
 Disconnect and uninstall retain the private journal so interrupted writes can be resolved. Deleting that data is a separate manual action after checking the diary; it also deletes local reconciliation history. No automatic data migration or remote grant revocation is promised.
 
 Official skill locations: [Codex](https://learn.chatgpt.com/docs/build-skills), [Claude Code](https://code.claude.com/docs/en/skills).
+
+## Claude Desktop
+
+For ordinary local Desktop chat on macOS/Windows use `fitbit-mcp install --client claude-desktop` (optional `--demo` for synthetic data). See [Desktop instructions](desktop.md); CLI skills and Desktop MCP prompts are different mechanisms. This does not connect web/mobile accounts.

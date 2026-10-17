@@ -1,6 +1,6 @@
 {
   "name": "fitbit",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "description": "Fitbit MCP reads and reviewed meal/water logs",
   "author": {
     "name": "Dmitrii Tareev"

@@ -29,7 +29,7 @@ it("connects via real stdio and completes a synthetic meal roundtrip", async () 
   } finally { await client.close(); }
 }, 20000);
 
-it("exposes shared workflows and completes cancel, repeated meal, water correction and discovery scenarios", async () => {
+it("exposes shared workflows and completes cancel, repeated water, water correction and discovery scenarios", async () => {
   const client = new Client({ name: "fitbit-scenarios", version: "1" });
   await client.connect(new StdioClientTransport({ command: process.execPath, args: [resolve("dist/cli.js"), "serve", "--demo"], stderr: "pipe" }));
   const call = async (name: string, args: Record<string, unknown> = {}, error = false) => {
