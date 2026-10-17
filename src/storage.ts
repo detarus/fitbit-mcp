@@ -31,7 +31,7 @@ export class Store {
           "$acl.SetAccessRuleProtection($true,$false)",
           "$rule=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,[System.Security.AccessControl.FileSystemRights]::FullControl,[System.Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit',[System.Security.AccessControl.PropagationFlags]::None,[System.Security.AccessControl.AccessControlType]::Allow)",
           "$acl.AddAccessRule($rule)",
-          "Set-Acl -LiteralPath $env:FITBIT_MCP_ACL_PATH -AclObject $acl",
+          "[System.IO.Directory]::SetAccessControl($env:FITBIT_MCP_ACL_PATH,$acl)",
         ].join("; ");
         await promisify(execFile)("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { windowsHide: true, env: { ...process.env, FITBIT_MCP_ACL_PATH: this.directory } });
       } catch (cause) {

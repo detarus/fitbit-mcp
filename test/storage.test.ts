@@ -40,7 +40,7 @@ it("repairs POSIX permissions and removes explicit Windows Everyone grants", asy
       execFileSync("icacls", [store.directory, "/grant", "*S-1-1-0:(OI)(CI)R"]);
       execFileSync("icacls", [store.path("tokens.json"), "/grant", "*S-1-1-0:R"]);
       await store.init(); await store.read("tokens.json");
-      const command = "$a=(Get-Acl -LiteralPath $env:FITBIT_TEST_ACL_PATH).Access; @($a | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -eq 'S-1-1-0' }).Count";
+      const command = "$a=[System.IO.File]::GetAccessControl($env:FITBIT_TEST_ACL_PATH).Access; @($a | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -eq 'S-1-1-0' }).Count";
       const count = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { encoding: "utf8", env: { ...process.env, FITBIT_TEST_ACL_PATH: store.path("tokens.json") } }).trim();
       expect(count).toBe("0");
     } else {
