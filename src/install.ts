@@ -1,6 +1,6 @@
 import { access, lstat, mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
-import { delimiter, dirname, join } from "node:path";
+import { delimiter, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -51,8 +51,18 @@ export async function registerMcp(client: ClientName) {
       if (!directory) continue;
       const exe = join(directory, client + ".exe");
       try { await access(exe); command = exe; found = true; break; } catch {}
-      const entry = join(directory, "node_modules", ...(client === "codex" ? ["@openai", "codex", "bin", "codex.js"] : ["@anthropic-ai", "claude-code", "cli.js"]));
-      try { await access(entry); command = process.execPath; prefix = [entry]; found = true; break; } catch {}
+      const packageDirectory = join(directory, "node_modules", ...(client === "codex" ? ["@openai", "codex"] : ["@anthropic-ai", "claude-code"]));
+      try {
+        const pkg = JSON.parse(await readFile(join(packageDirectory, "package.json"), "utf8"));
+        const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.[client];
+        if (typeof bin !== "string") continue;
+        const entry = resolve(packageDirectory, bin), location = relative(packageDirectory, entry);
+        if (isAbsolute(location) || location.startsWith("..") || /\.(cmd|bat|ps1)$/i.test(entry)) continue;
+        await access(entry);
+        if (/\.[cm]?js$/i.test(entry)) { command = process.execPath; prefix = [entry]; }
+        else { command = entry; prefix = []; }
+        found = true; break;
+      } catch {}
     }
     if (!found) throw new AppError("CLIENT_MISSING", "Install the official client CLI first. A Windows native executable or standard global npm installation is required.");
   }
