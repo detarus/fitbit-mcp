@@ -2,7 +2,7 @@
 
 Tools: fitbit_summary and fitbit_compare. CLI: report and compare.
 
-Inputs are explicit civil calendar dates, with an exclusive end date and a maximum of 14 days per window. Select activity, sleep and/or heart domains. Comparisons default to the immediately preceding window of equal length; a custom previous window must have the same number of calendar days.
+Inputs are explicit civil calendar dates, with an exclusive end date and a maximum of 14 days per window. Select activity, sleep, heart and/or vitals domains (all four by default). Comparisons default to the immediately preceding window of equal length; a custom previous window must have the same number of calendar days.
 
 ## Metrics
 
@@ -15,6 +15,9 @@ Inputs are explicit civil calendar dates, with an exclusive end date and a maxim
 | sleepMinutes | minutes | reconciled sleep.summary.minutesAsleep, assigned to wake date |
 | restingHeartRate | bpm | reconciled dailyRestingHeartRate.beatsPerMinute |
 | hrv | ms | reconciled dailyHeartRateVariability.averageHeartRateVariabilityMilliseconds |
+| oxygenSaturation | % | reconciled dailyOxygenSaturation.averagePercentage |
+| respiratoryRate | breaths/min | reconciled dailyRespiratoryRate.breathsPerMinute |
+| skinTemperatureDelta | °C relative to baseline | nightlyTemperatureCelsius minus baselineTemperatureCelsius; missing baseline is null |
 
 Values are provider-calculated metrics, not AI estimates. Google-wearables is the API source family for Fitbit and Pixel Watch; it is not a per-device Fitbit-only filter.
 
