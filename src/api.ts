@@ -10,12 +10,16 @@ export const scopesFor: Record<DataType, string> = {
   "heart-rate": "health_metrics_and_measurements.readonly",
   "daily-resting-heart-rate": "health_metrics_and_measurements.readonly",
   "daily-heart-rate-variability": "health_metrics_and_measurements.readonly",
+  "daily-oxygen-saturation": "health_metrics_and_measurements.readonly",
+  "daily-respiratory-rate": "health_metrics_and_measurements.readonly",
+  "daily-sleep-temperature-derivations": "health_metrics_and_measurements.readonly",
   "nutrition-log": "nutrition.readonly", "hydration-log": "nutrition.readonly",
 };
 export interface HealthApi {
   demo: boolean;
   accountKey(): Promise<string>;
   info(): Promise<unknown>;
+  nameFor(type: "nutrition-log" | "hydration-log", id: string): Promise<string>;
   points(type: DataType, start: string, end: string, pageToken?: string, reconcile?: boolean): Promise<Json>;
   daily(type: DataType, start: string, end: string): Promise<Json>;
   create(type: "nutrition-log" | "hydration-log", body: Json): Promise<Json>;
@@ -72,6 +76,11 @@ export class GoogleHealth implements HealthApi {
     if (!record?.accountId) throw new AppError("AUTH_REQUIRED", "Run auth to establish your Google Health identity.");
     return config.clientId + ":" + record.accountId;
   }
+  async nameFor(type: "nutrition-log" | "hydration-log", id: string) {
+    const record = await this.auth.record();
+    if (!record?.accountId || !/^[a-z0-9-]{4,63}$/.test(id)) throw new AppError("RESOURCE_NAME", "Cannot establish a stable resource ID.");
+    return validateName("users/" + record.accountId + "/dataTypes/" + type + "/dataPoints/" + id, type);
+  }
   async info() {
     await this.auth.requireScope("settings.readonly");
     return this.request("users/me/pairedDevices");
@@ -114,18 +123,25 @@ export class DemoHealth implements HealthApi {
   demo = true;
   private records = new Map<string, Json>();
   async accountKey() { return "synthetic-demo"; }
+  async nameFor(type: "nutrition-log" | "hydration-log", id: string) { return validateName("users/demo/dataTypes/" + type + "/dataPoints/" + id, type); }
   async info() { return { demo: true, pairedDevices: [{ displayName: "Synthetic Fitbit Air" }] }; }
   async points(type: DataType, start: string, end: string) {
     if (type === "nutrition-log" || type === "hydration-log") return { demo: true, complete: true, dataPoints: [...this.records.values()].filter(p => p.name.includes("/" + type + "/")) };
-    if (type === "sleep") return {
-      demo: true, complete: true,
-      dataPoints: [{ dataPointName: "demo-sleep", sleep: { interval: { startTime: new Date(Date.parse(start) - 2 * 3600000).toISOString(), endTime: start + "T06:00:00Z", civilEndTime: civil(start) }, summary: { minutesAsleep: "420" }, metadata: { processed: true } } }],
+    const dates: string[] = [];
+    for (let t = Date.parse(start); t < Date.parse(end); t += 86400000) dates.push(new Date(t).toISOString().slice(0, 10));
+    if (type === "sleep") return { demo: true, complete: true, dataPoints: dates.map(date => ({
+      sleep: { interval: { startTime: new Date(Date.parse(date) - 2 * 3600000).toISOString(), endTime: date + "T06:00:00Z", civilEndTime: civil(date) },
+        summary: { minutesAsleep: String(420 + (Math.floor(Date.parse(date) / 86400000) % 5) * 5) }, metadata: { processed: true } },
+    })) };
+    const dailyMembers: Record<string, [string, (i: number) => Json]> = {
+      "daily-resting-heart-rate": ["dailyRestingHeartRate", i => ({ beatsPerMinute: 60 + i % 3 })],
+      "daily-heart-rate-variability": ["dailyHeartRateVariability", i => ({ averageHeartRateVariabilityMilliseconds: 45 + i % 5 })],
+      "daily-oxygen-saturation": ["dailyOxygenSaturation", () => ({ averagePercentage: 97, lowerBoundPercentage: 95, upperBoundPercentage: 99 })],
+      "daily-respiratory-rate": ["dailyRespiratoryRate", () => ({ breathsPerMinute: 15 })],
+      "daily-sleep-temperature-derivations": ["dailySleepTemperatureDerivations", () => ({ nightlyTemperatureCelsius: 33.2, baselineTemperatureCelsius: 33.5 })],
     };
-    if (type === "daily-resting-heart-rate" || type === "daily-heart-rate-variability") {
-      const key = type === "daily-resting-heart-rate" ? "dailyRestingHeartRate" : "dailyHeartRateVariability";
-      const value = type === "daily-resting-heart-rate" ? { beatsPerMinute: "60" } : { averageHeartRateVariabilityMilliseconds: 45 };
-      return { demo: true, complete: true, dataPoints: [{ [key]: { date: civil(start).date, ...value } }] };
-    }
+    const daily = dailyMembers[type];
+    if (daily) return { demo: true, complete: true, dataPoints: dates.map(date => ({ [daily[0]]: { date: civil(date).date, ...daily[1](Math.floor(Date.parse(date) / 86400000)) } })) };
     return { demo: true, complete: true, dataPoints: [], period: { start, end }, note: "No synthetic samples for this type; not a measured zero." };
   }
   async daily(type: DataType, start: string, end: string) {
@@ -135,7 +151,8 @@ export class DemoHealth implements HealthApi {
     return { demo: true, rollupDataPoints: points };
   }
   async create(type: "nutrition-log" | "hydration-log", body: Json) {
-    const name = "users/demo/dataTypes/" + type + "/dataPoints/" + crypto.randomUUID();
+    const name = body.name || "users/demo/dataTypes/" + type + "/dataPoints/" + crypto.randomUUID();
+    if (this.records.has(name)) throw new AppError("ALREADY_EXISTS", "Demo resource already exists.", 409);
     const value = { ...body, name }; this.records.set(name, value);
     return { done: true, response: value };
   }

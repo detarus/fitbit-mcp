@@ -87,3 +87,80 @@ describe("durable meal operations", () => {
     expect((await ops.remove(requestId, true)).items[0].state).toBe("deleted");
   });
 });
+
+describe("recovery and corrections", () => {
+  it("recovers an accepted create with a lost response by stable ID after restart, without another POST", async () => {
+    const input = meal(); await ops.preview("meal", input);
+    const original = api.create.bind(api);
+    const create = vi.spyOn(api, "create").mockImplementationOnce(async (kind, body) => { await original(kind, body); throw new AppError("WRITE_UNCERTAIN", "response lost"); });
+    expect((await ops.commit(input.requestId, true)).items[0].state).toBe("unknown");
+    const restarted = new Operations(new Store(dir), api, async () => true);
+    expect((await restarted.reconcile(input.requestId)).items[0].state).toBe("verified");
+    await restarted.commit(input.requestId, true); expect(create).toHaveBeenCalledTimes(1);
+    expect((await restarted.list()).operations[0].operationId).toBe(input.requestId);
+  });
+  it("keeps 404 creates and legacy crashes uncertain; never guesses identity from matching food", async () => {
+    const input = meal(); await ops.preview("meal", input);
+    vi.spyOn(api, "create").mockRejectedValueOnce(new AppError("WRITE_UNCERTAIN", "offline"));
+    await ops.commit(input.requestId, true);
+    expect((await ops.reconcile(input.requestId)).items[0].state).toBe("unknown");
+    const op: any = await store.read(ops.file(input.requestId)); delete op.items[0].expectedName; op.items[0].state = "sending"; await store.write(ops.file(input.requestId), op);
+    const get = vi.spyOn(api, "get");
+    expect((await ops.reconcile(input.requestId)).items[0].state).toBe("sending"); expect(get).not.toHaveBeenCalled();
+  });
+  it("will not attach an ID whose payload changed externally", async () => {
+    const input = meal(); await ops.preview("meal", input); await ops.commit(input.requestId, true);
+    const op: any = await store.read(ops.file(input.requestId)); op.items[0].state = "unknown"; await store.write(ops.file(input.requestId), op);
+    const get = api.get.bind(api);
+    vi.spyOn(api, "get").mockImplementation(async name => ({ ...await get(name), nutritionLog: { ...(await get(name)).nutritionLog, energy: { kcal: 999 } } }));
+    expect((await ops.reconcile(input.requestId)).items[0]).toMatchObject({ state: "unknown", error: { code: "VERIFY" } });
+  });
+  it("recovers a completed delete with a lost response without deleting twice", async () => {
+    const input = meal(); await ops.preview("meal", input); await ops.commit(input.requestId, true);
+    const original = api.remove.bind(api);
+    const remove = vi.spyOn(api, "remove").mockImplementationOnce(async (kind, name) => { await original(kind, name); throw new Error("lost"); });
+    await expect(ops.remove(input.requestId, true)).rejects.toMatchObject({ code: "DELETE_UNCERTAIN" });
+    expect((await ops.reconcile(input.requestId)).items[0].state).toBe("deleted");
+    await ops.remove(input.requestId, true); expect(remove).toHaveBeenCalledTimes(1);
+  });
+  it("allows an explicit delete retry after read-back proves the record is still present", async () => {
+    const input = meal(); await ops.preview("meal", input); await ops.commit(input.requestId, true);
+    vi.spyOn(api, "remove").mockRejectedValueOnce(new Error("not sent"));
+    await expect(ops.remove(input.requestId, true)).rejects.toMatchObject({ code: "DELETE_UNCERTAIN" });
+    expect((await ops.reconcile(input.requestId)).items[0].state).toBe("verified");
+    expect((await ops.remove(input.requestId, true)).items[0].state).toBe("deleted");
+  });
+  it("previews correction without writes, resumes a partial replacement and excludes a competing correction", async () => {
+    const old = meal(); await ops.preview("meal", old); await ops.commit(old.requestId, true);
+    const replacement = meal(); replacement.dishes[0].kcal = 180;
+    const competing = meal();
+    const original = api.create.bind(api);
+    const create = vi.spyOn(api, "create"), remove = vi.spyOn(api, "remove");
+    await ops.preview("meal", replacement, old.requestId); await ops.preview("meal", competing, old.requestId);
+    expect(create).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled();
+    create.mockImplementationOnce(async (kind, body) => { await original(kind, body); throw new Error("lost"); });
+    expect((await ops.commit(replacement.requestId, true)).items[0].state).toBe("unknown");
+    expect((await ops.status(old.requestId)).items[0].state).toBe("deleted");
+    await expect(ops.commit(competing.requestId, true)).rejects.toMatchObject({ code: "CORRECTION_BLOCKED" });
+    await ops.reconcile(replacement.requestId);
+    expect((await ops.commit(replacement.requestId, true)).items[0].state).toBe("verified");
+    expect(create).toHaveBeenCalledTimes(1); expect(remove).toHaveBeenCalledTimes(1);
+  });
+  it("blocks new writes when original deletion is uncertain, then resumes the same correction", async () => {
+    const old = meal(); await ops.preview("meal", old); await ops.commit(old.requestId, true);
+    const replacement = meal(); await ops.preview("meal", replacement, old.requestId);
+    vi.spyOn(api, "remove").mockRejectedValueOnce(new Error("offline"));
+    const create = vi.spyOn(api, "create");
+    await expect(ops.commit(replacement.requestId, true)).rejects.toMatchObject({ code: "DELETE_UNCERTAIN" });
+    expect(create).not.toHaveBeenCalled();
+    await expect(ops.cancel(replacement.requestId)).rejects.toMatchObject({ code: "CORRECTION_STARTED" });
+    await ops.reconcile(old.requestId);
+    expect((await ops.commit(replacement.requestId, true)).items[0].state).toBe("verified");
+  });
+  it("keeps list mode/account isolation and checks permission inside the session lock", async () => {
+    const input = meal(); await ops.preview("meal", input);
+    vi.spyOn(api, "accountKey").mockResolvedValue("different");
+    expect((await ops.list()).operations).toEqual([]);
+    await expect(ops.reconcile(input.requestId)).rejects.toMatchObject({ code: "ACCOUNT_MISMATCH" });
+  });
+});

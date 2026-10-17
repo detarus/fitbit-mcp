@@ -2,7 +2,7 @@
 
 Local Fitbit MCP via Google Health API, with read tools, reviewed meal/water writes, and shared skills for Codex and Claude Code.
 
-**Status: alpha.2; real-account validation pending. No published npm release.** [Validation and tested package artifacts](docs/VALIDATION.md). Planned work is tracked in [ROADMAP.md](ROADMAP.md).
+**Status: alpha.3; real-account validation pending. No published npm release.** [Validation and tested package artifacts](docs/VALIDATION.md). Planned work is tracked in [ROADMAP.md](ROADMAP.md).
 
 ## Try it
 
@@ -15,9 +15,10 @@ pnpm install --frozen-lockfile
 pnpm check
 node dist/cli.js demo-check
 node dist/cli.js report --demo --start 2026-10-01 --end 2026-10-08
+node dist/cli.js recovery --demo --date 2026-10-17
 ```
 
-**[Testing on Mac: Russian](docs/TESTING.ru.md) · [English](docs/TESTING.md) · [Summary semantics](docs/reports.md)**
+**[Testing on Mac: Russian](docs/TESTING.ru.md) · [English](docs/TESTING.md) · [Summary semantics](docs/reports.md) · [Recovery model](docs/recovery.md) · [Operations](docs/operations.md)**
 
 Demo uses synthetic records and makes no Google requests. Live setup needs your own Google Cloud Desktop OAuth client and browser consent. Keep credentials outside the repository.
 
@@ -26,11 +27,14 @@ Demo uses synthetic records and makes no Google requests. Live setup needs your 
 - Google OAuth with loopback callback, state and PKCE; explicit terminal authorization.
 - Status/device metadata, bounded raw reads, daily wearable activity rollups, normalized summaries and code-calculated period comparisons.
 - Local immutable meal/water previews, explicit commits, per-item read-back and duplicate protection for the same operation.
-- Removal of known records created by an operation; uncertain outcomes block automatic replay.
-- Shared setup, review and nutrition skills; initial Codex/Claude Code plugin manifests.
+- Stable write IDs, read-only reconciliation of interrupted writes/deletes, linked non-atomic meal/water corrections.
+- Personal-relative recovery model with a 28-day baseline and explicit factors; SpO2, respiration and skin-temperature deltas.
+- One-command MCP plus shared skills installation for Codex/Claude Code; plugin manifests also included.
 - CI for synthetic checks on macOS, Windows and Linux. Real OAuth/client verification is tracked separately.
 
-Actual API compatibility, data coverage and app presentation still need live validation. Normalized summaries cover activity, sleep, resting pulse and HRV with explicit coverage; automatic reconciliation of uncertain writes is not finished.
+Actual API compatibility, data coverage and app presentation still need live validation. Normalized summaries expose activity/sleep/heart/vitals with explicit coverage. Our recovery heuristic is not Fitbit Daily Readiness or a clinically validated score.
+
+For release installation, client setup, updating and removal see [installation](docs/installation.md) and the [compatibility matrix](docs/compatibility.md).
 
 ## Meal workflow
 

@@ -8,6 +8,7 @@ import { Operations } from "./operations.js";
 import { publicError } from "./errors.js";
 import { dateSchema, rangeSchema, typeSchema, types, mealSchema, waterSchema } from "./schema.js";
 
+import { recovery } from "./recovery.js";
 import { report, compareReports, comparisonRange, domainsSchema } from "./reports.js";
 
 export function createMcp(api: HealthApi, ops: Operations, auth?: Auth) {
@@ -59,6 +60,10 @@ export function createMcp(api: HealthApi, ops: Operations, auth?: Auth) {
     const previous = comparisonRange(args.startDate, args.endDate, args.previousStartDate, args.previousEndDate);
     return compareReports(await report(api, args.startDate, args.endDate, args.domains), await report(api, previous.startDate, previous.endDate, args.domains));
   }));
+  server.registerTool("fitbit_recovery", {
+    description: "Custom personal-relative recovery heuristic v1 from 28 prior days of sleep/HRV/resting pulse. Requires 14 paired baseline days and 3 in the last 7. Returns formula, coverage and contributions, or null with reasons. Not Fitbit Daily Readiness, a medical assessment or exercise clearance.",
+    inputSchema: { date: dateSchema }, annotations: read,
+  }, args => result(() => recovery(api, args.date)));
   server.registerTool("fitbit_preview_meal", {
     description: "Create a local meal draft ONLY. Values apply to the whole dish portion, not per 100g. Review assumptions, portions, date/offset and all K/P/F/C values before saving. Photo estimates are approximate.",
     inputSchema: mealSchema.shape, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -68,6 +73,16 @@ export function createMcp(api: HealthApi, ops: Operations, auth?: Auth) {
     inputSchema: waterSchema.shape, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, args => result(() => ops.preview("water", args)));
   const id = { operationId: z.string().uuid() };
+  server.registerTool("fitbit_operations", { description: "List local operation IDs and states for this account/mode, without dish details. Use to find an interrupted operation.", inputSchema: {}, annotations: read }, () => result(() => ops.list()));
+  server.registerTool("fitbit_reconcile", { description: "Read back stable IDs to recover interrupted creates/deletes. Updates only the local journal; never POSTs or DELETEs. A missing record does not authorize resubmission. Legacy unknown creates without a stable ID need manual inspection.", inputSchema: id, annotations: { ...read, readOnlyHint: false, destructiveHint: false, idempotentHint: true } }, args => result(() => ops.reconcile(args.operationId)));
+  server.registerTool("fitbit_preview_correction", {
+    description: "Create a local replacement meal draft linked to an existing fully verified meal. No Google changes yet. Show old and new content. Committing deletes originals then saves replacements; this is not atomic. New requestId required.",
+    inputSchema: { originalOperationId: z.string().uuid(), ...mealSchema.shape }, annotations: { ...mutate, destructiveHint: false, openWorldHint: false },
+  }, args => result(() => ops.preview("meal", args, args.originalOperationId)));
+  server.registerTool("fitbit_preview_water_correction", {
+    description: "Preview a non-atomic water correction linked to a verified water operation. Committing deletes the original then saves the replacement.",
+    inputSchema: { originalOperationId: z.string().uuid(), ...waterSchema.shape }, annotations: { ...mutate, destructiveHint: false, openWorldHint: false },
+  }, args => result(() => ops.preview("water", args, args.originalOperationId)));
   server.registerTool("fitbit_operation", { description: "Inspect the persisted state of a meal/water operation. Never silently resubmit uncertain writes.", inputSchema: id, annotations: { ...read, openWorldHint: false } }, args => result(() => ops.status(args.operationId)));
   server.registerTool("fitbit_commit", {
     description: "Save an existing reviewed preview after explicit user intent. Reusing its operation ID never blindly replays an uncertain item. Return per-item states; only verified means read-back succeeded.",
@@ -75,7 +90,7 @@ export function createMcp(api: HealthApi, ops: Operations, auth?: Auth) {
   }, args => result(() => ops.commit(args.operationId, args.confirm)));
   server.registerTool("fitbit_cancel_draft", { description: "Cancel an untouched local preview; does not delete Google records.", inputSchema: id, annotations: { ...mutate, openWorldHint: false } }, args => result(() => ops.cancel(args.operationId)));
   server.registerTool("fitbit_remove", {
-    description: "Remove only the known Google records created by this operation, after explicit user intent. Blocks uncertain records; verifies deletion. To correct manual-food macros, remove old records then review and save a new preview; this is not atomic.",
+    description: "Remove only the known Google records created by this operation, after explicit user intent. Blocks uncertain records; verifies deletion. Use fitbit_preview_correction for a linked replacement; this is not atomic.",
     inputSchema: { ...id, confirm: z.literal(true) }, annotations: mutate,
   }, args => result(() => ops.remove(args.operationId, args.confirm)));
   return server;

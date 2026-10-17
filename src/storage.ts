@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, rename, chmod, rm, lstat } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename, chmod, rm, lstat, readdir } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -42,6 +42,10 @@ export class Store {
       await writeFile(temp, JSON.stringify(value, null, 2) + "\n", { mode: 0o600, flag: "wx", flush: true });
       await rename(temp, target);
     } finally { await rm(temp, { force: true }); }
+  }
+  async operationFiles(demo: boolean) {
+    const prefix = demo ? "demo-" : "live-";
+    return (await readdir(this.directory)).filter(name => name.startsWith(prefix) && /^(demo|live)-[a-fA-F0-9-]{36}\.json$/.test(name)).sort();
   }
   async remove(name: string) { await rm(this.path(name), { force: true }); }
   async locked<T>(name: string, fn: () => Promise<T>): Promise<T> {

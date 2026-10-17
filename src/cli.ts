@@ -3,9 +3,9 @@ import { parseArgs } from "node:util";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+
+
+
 import { randomUUID } from "node:crypto";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Store } from "./storage.js";
@@ -15,16 +15,18 @@ import { Operations } from "./operations.js";
 import { createMcp } from "./server.js";
 import { report, compareReports, comparisonRange, domainsSchema } from "./reports.js";
 import { publicError } from "./errors.js";
+import { recovery } from "./recovery.js";
+import { installSkills, registerMcp, type ClientName } from "./install.js";
 import { typeSchema, rangeSchema } from "./schema.js";
 
 async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
-    options: { credentials: { type: "string" }, "nutrition-write": { type: "boolean" }, "no-open": { type: "boolean" }, live: { type: "boolean" }, demo: { type: "boolean" }, type: { type: "string" }, start: { type: "string" }, end: { type: "string" }, "domains": { type: "string" }, "previous-start": { type: "string" }, "previous-end": { type: "string" }, client: { type: "string" }, help: { type: "boolean" } },
+    options: { credentials: { type: "string" }, "nutrition-write": { type: "boolean" }, "no-open": { type: "boolean" }, live: { type: "boolean" }, demo: { type: "boolean" }, type: { type: "string" }, start: { type: "string" }, end: { type: "string" }, "domains": { type: "string" }, "previous-start": { type: "string" }, "previous-end": { type: "string" }, client: { type: "string" }, date: { type: "string" }, "skills-only": { type: "boolean" }, help: { type: "boolean" } },
   });
   const command = positionals[0] || "serve";
   if (values.help || command === "help") {
-    console.log("fitbit-mcp: setup --credentials /absolute/client.json [--nutrition-write]; auth [--no-open]; doctor [--live]; serve [--demo]; demo; demo-check; read --type steps --start YYYY-MM-DD --end YYYY-MM-DD; report --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; compare --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; install --client codex|claude; disconnect");
+    console.log("fitbit-mcp: setup --credentials /absolute/client.json [--nutrition-write]; auth [--no-open]; doctor [--live]; serve [--demo]; demo; demo-check; read --type steps --start YYYY-MM-DD --end YYYY-MM-DD; report --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; compare --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; recovery --date YYYY-MM-DD [--demo]; install --client codex|claude [--skills-only]; disconnect");
     return;
   }
   const demo = command === "demo" || command === "demo-check" || !!values.demo;
@@ -60,17 +62,18 @@ async function main() {
         const previous = comparisonRange(range.startDate, range.endDate, values["previous-start"], values["previous-end"]);
         output = compareReports(await report(api, range.startDate, range.endDate, domains), await report(api, previous.startDate, previous.endDate, domains));
       }
-    } else if (command === "read") {
+    } else if (command === "recovery") output = await recovery(api, values.date || "");
+    else if (command === "read") {
       const type = typeSchema.parse(values.type), range = rangeSchema.parse({ startDate: values.start, endDate: values.end });
       output = await api.points(type, range.startDate, range.endDate);
     } else if (command === "install") {
       if (!["codex", "claude"].includes(values.client || "")) throw new Error("Choose --client codex or --client claude");
-      const client = values.client!;
-      const script = fileURLToPath(import.meta.url);
-      const args = client === "codex" ? ["mcp", "add", "fitbit", "--", process.execPath, script, "serve"] : ["mcp", "add", "--scope", "user", "--transport", "stdio", "fitbit", "--", process.execPath, script, "serve"];
-      // No shell interpolation; modifies only the user's selected MCP client configuration.
-      await promisify(execFile)(client, args, { windowsHide: true });
-      output = { installed: client, note: "Restart the client and ask it to call fitbit_status. Plugin skills can be installed separately; avoid registering the MCP twice." };
+      const client = values.client as ClientName;
+      output = await store.locked("install", async () => {
+        const skills = await installSkills(client);
+        if (!values["skills-only"]) await registerMcp(client);
+        return { installed: client, skills, mcpRegistered: !values["skills-only"], note: "Restart the client. Use fitbit-setup, fitbit-review and fitbit-nutrition skills. Avoid enabling another plugin instance of the same MCP." };
+      });
     } else if (command === "demo-check") {
       const requestId = randomUUID();
       const draft = await ops.preview("meal", { requestId, at: "2026-10-17T13:00:00+03:00", mealType: "LUNCH", dishes: [{ name: "Demo chicken", grams: 100, kcal: 165, protein: 31, fat: 3.6, carbs: 0, source: "user-provided" }] });

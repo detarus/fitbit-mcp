@@ -16,7 +16,7 @@ const temporary = await mkdtemp(join(tmpdir(), "fitbit-package-"));
 const npm = (args, cwd) => execFileSync(process.execPath, [npmCli, ...args], { cwd, encoding: "utf8", timeout: 180000, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
 try {
   const [packed] = JSON.parse(npm(["pack", "--json", "--pack-destination", temporary], root));
-  const allowed = new Set(["dist", "skills", ".claude-plugin", ".codex-plugin", ".mcp.json", "docs", "README.md", "LICENSE", "SECURITY.md", "package.json"]);
+  const allowed = new Set(["dist", "skills", ".claude-plugin", ".codex-plugin", ".mcp.json", "docs", "README.md", "LICENSE", "SECURITY.md", "CHANGELOG.md", "package.json"]);
   for (const file of packed.files) {
     assert(allowed.has(file.path.split("/")[0]), "Unexpected packaged path: " + file.path);
     assert(!/(^|\/)(\.env|tokens[^/]*\.json|client_secret[^/]*\.json)/i.test(file.path), "Sensitive filename in package");
@@ -31,6 +31,8 @@ try {
   assert(result.demo && result.googleRequests === 0);
   assert(result.saved.items.every(item => item.state === "verified"));
   assert(result.removed.items.every(item => item.state === "deleted"));
+  const recovery = JSON.parse(execFileSync(process.execPath, [binary, "recovery", "--demo", "--date", "2026-10-17"], { encoding: "utf8", timeout: 30000 }));
+  assert(recovery.demo && recovery.status === "calculated" && recovery.baseline.pairedDays === 28);
   await copyFile(join(temporary, packed.filename), join(root, packed.filename));
   console.log(JSON.stringify({ package: packed.filename, installedOutsideRepository: true, demoRoundtrip: "passed", googleRequests: 0 }));
 } finally { await rm(temporary, { recursive: true, force: true }); }

@@ -3,7 +3,7 @@ import { type HealthApi, type Json } from "./api.js";
 import { AppError, publicError } from "./errors.js";
 import { dateSchema, rangeSchema, type DataType } from "./schema.js";
 
-export const domainsSchema = z.array(z.enum(["activity", "sleep", "heart"])).min(1).max(3).default(["activity", "sleep", "heart"]);
+export const domainsSchema = z.array(z.enum(["activity", "sleep", "heart", "vitals"])).min(1).max(4).default(["activity", "sleep", "heart", "vitals"]);
 type Domain = z.infer<typeof domainsSchema>[number];
 type Quality = "available" | "missing" | "invalid" | "conflict" | "partial" | "error";
 type Metric = { value: number | null; unit: string; quality: Quality; reason?: string };
@@ -17,6 +17,9 @@ const definitions = {
   sleepMinutes: { unit: "minutes", domain: "sleep", sum: true },
   restingHeartRate: { unit: "bpm", domain: "heart", sum: false },
   hrv: { unit: "ms", domain: "heart", sum: false },
+  oxygenSaturation: { unit: "%", domain: "vitals", sum: false },
+  respiratoryRate: { unit: "breaths/min", domain: "vitals", sum: false },
+  skinTemperatureDelta: { unit: "°C relative to provider baseline", domain: "vitals", sum: false },
 } as const;
 type Key = keyof typeof definitions;
 type Day = { date: string; metrics: Partial<Record<Key, Metric>> };
@@ -53,8 +56,10 @@ function number(value: unknown): number | undefined {
 }
 function rounded(value: number) { return Math.round(value * 1e6) / 1e6; }
 function metric(key: Key, value: unknown): Metric {
-  const n = number(value);
-  return n === undefined ? { value: null, unit: definitions[key].unit, quality: "invalid", reason: "Missing or invalid provider field; no zero was inferred." } : { value: n, unit: definitions[key].unit, quality: "available" };
+  const signed = key === "skinTemperatureDelta" && typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER;
+  const n = signed ? value as number : number(value);
+  const invalid = n === undefined || (key === "oxygenSaturation" && n > 100);
+  return invalid ? { value: null, unit: definitions[key].unit, quality: "invalid", reason: "Missing or invalid provider field; no zero was inferred." } : { value: n!, unit: definitions[key].unit, quality: "available" };
 }
 function wakeDate(interval: Json) {
   const civil = dateValue(interval.civilEndTime?.date);
@@ -134,6 +139,23 @@ export function normalizeReport(
       for (const point of input?.dataPoints || []) if (point[member]) write(dateValue(point[member].date), key, point[member][field]);
     }
   }
+  if (domains.includes("vitals")) {
+    for (const [type, member, key] of [
+      ["daily-oxygen-saturation", "dailyOxygenSaturation", "oxygenSaturation"],
+      ["daily-respiratory-rate", "dailyRespiratoryRate", "respiratoryRate"],
+      ["daily-sleep-temperature-derivations", "dailySleepTemperatureDerivations", "skinTemperatureDelta"],
+    ] as const) {
+      const input = inputs[type];
+      if (!available(type, input, [key])) continue;
+      for (const point of input?.dataPoints || []) {
+        const value = point[member]; if (!value) continue;
+        const a = number(value.nightlyTemperatureCelsius), b = number(value.baselineTemperatureCelsius);
+        const observation = key === "oxygenSaturation" ? value.averagePercentage : key === "respiratoryRate" ? value.breathsPerMinute
+          : a === undefined || b === undefined ? undefined : rounded(a - b);
+        write(dateValue(value.date), key, observation);
+      }
+    }
+  }
   if (domains.includes("sleep") && available("sleep", inputs.sleep, ["sleepMinutes"])) {
     const sessions = new Map<string, { start: number; end: number; minutes: number | undefined; pending: boolean }[]>();
     for (const point of inputs.sleep?.dataPoints || []) {
@@ -168,13 +190,14 @@ export function normalizeReport(
   }
   return { demo, startDate: start, endDate: end, fetchedAt: new Date().toISOString(), source: demo ? "synthetic" : "Google Health v4: reconciled google-wearables (Fitbit and Pixel Watch; not device-specific)", timeBasis: "Provider civil dates; sleep belongs to wake date; physical intervals are used only for overlap/duration checks.", domains, days, summary, issues };
 }
-export async function report(api: HealthApi, start: string, end: string, domains: Domain[] = ["activity", "sleep", "heart"]) {
+export async function report(api: HealthApi, start: string, end: string, domains: Domain[] = ["activity", "sleep", "heart", "vitals"]) {
   rangeSchema.parse({ startDate: start, endDate: end });
   const selected = [...new Set(domainsSchema.parse(domains))], inputs: Record<string, Dataset> = {};
   const requests: { type: DataType; daily: boolean }[] = [];
   if (selected.includes("activity")) for (const type of ["steps", "distance", "total-calories", "active-zone-minutes"] as const) requests.push({ type, daily: true });
   if (selected.includes("sleep")) requests.push({ type: "sleep", daily: false });
   if (selected.includes("heart")) for (const type of ["daily-resting-heart-rate", "daily-heart-rate-variability"] as const) requests.push({ type, daily: false });
+  if (selected.includes("vitals")) for (const type of ["daily-oxygen-saturation", "daily-respiratory-rate", "daily-sleep-temperature-derivations"] as const) requests.push({ type, daily: false });
   for (let i = 0; i < requests.length; i += 2) await Promise.all(requests.slice(i, i + 2).map(async ({ type, daily }) => {
     try {
       const input = daily ? await api.daily(type, start, end) : await data(api, type, start, end);

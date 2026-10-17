@@ -4,7 +4,7 @@ export const baseScopes = ["activity_and_fitness.readonly", "health_metrics_and_
 export const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v, "Use a real YYYY-MM-DD date");
 export const timestampSchema = z.string().datetime({ offset: true });
 export const rangeSchema = z.object({ startDate: dateSchema, endDate: dateSchema }).refine(v => v.endDate > v.startDate && (Date.parse(v.endDate) - Date.parse(v.startDate)) / 86400000 <= 14, "End is exclusive; choose 1–14 calendar days");
-export const types = ["steps", "distance", "total-calories", "active-zone-minutes", "sleep", "heart-rate", "daily-resting-heart-rate", "daily-heart-rate-variability", "exercise", "nutrition-log", "hydration-log"] as const;
+export const types = ["steps", "distance", "total-calories", "active-zone-minutes", "sleep", "heart-rate", "daily-resting-heart-rate", "daily-heart-rate-variability", "exercise", "daily-oxygen-saturation", "daily-respiratory-rate", "daily-sleep-temperature-derivations", "nutrition-log", "hydration-log"] as const;
 export type DataType = typeof types[number];
 export const typeSchema = z.enum(types);
 export const dishesSchema = z.array(z.object({
