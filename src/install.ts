@@ -22,7 +22,7 @@ export async function installSkills(client: ClientName, userDirectory = homedir(
   const plans = [];
   for (const name of ["setup", "review", "nutrition"]) {
     const target = join(base, "fitbit-" + name);
-    const text = (await readFile(join(root, "skills", name, "SKILL.md"), "utf8")).replace("name: " + name + "\n", "name: fitbit-" + name + "\n");
+    const text = (await readFile(join(root, "skills", name, "SKILL.md"), "utf8")).replaceAll("\r\n", "\n").replace("name: " + name + "\n", "name: fitbit-" + name + "\n");
     if (await exists(target)) {
       if ((await lstat(target)).isSymbolicLink()) throw new AppError("INSTALL_CONFLICT", "Skill destination is a symbolic link: " + target);
       try {
@@ -57,5 +57,12 @@ export async function registerMcp(client: ClientName) {
     if (!found) throw new AppError("CLIENT_MISSING", "Install the official client CLI first. A Windows native executable or standard global npm installation is required.");
   }
   try { await promisify(execFile)(command, [...prefix, ...args], { windowsHide: true, timeout: 30000 }); }
-  catch { throw new AppError("CLIENT_INSTALL", "Cannot register MCP. Check that the selected client CLI is installed, then retry. Use --skills-only if MCP is already registered."); }
+  catch {
+    if (client === "claude") {
+      try {
+        const existing = await promisify(execFile)(command, [...prefix, "mcp", "get", "fitbit"], { windowsHide: true, timeout: 30000 });
+        if (existing.stdout.includes(script) && existing.stdout.includes(process.execPath)) return;
+      } catch {}
+    }
+    throw new AppError("CLIENT_INSTALL", "Cannot register MCP. Check that the selected client CLI is installed, then retry. Use --skills-only if MCP is already registered."); }
 }

@@ -33,7 +33,11 @@ jobs:
           name: package-${{ matrix.os }}
           path: '*.tgz'
   client-config:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     env:
       DISABLE_AUTOUPDATER: '1'
@@ -46,6 +50,14 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Install pinned official client CLIs
+        run: npm install --global --ignore-scripts --no-audit --no-fund @openai/codex@0.163.0 @anthropic-ai/claude-code@2.1.302
+      - name: Install MCP and shared skills for both clients, including repeat installation
+        run: |
+          node dist/cli.js install --client codex
+          node dist/cli.js install --client claude
+          node dist/cli.js install --client codex
+          node dist/cli.js install --client claude
       - name: Validate Claude plugin with the actual CLI
         run: npm exec --yes --package=@anthropic-ai/claude-code@2.1.302 -- claude plugin validate . --strict
       - name: Register the demo MCP with actual Codex CLI

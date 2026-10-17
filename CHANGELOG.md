@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0-alpha.3 — 2026-10-17
+
+- Add personal-relative recovery v1: 28-day baseline, sleep/HRV/resting pulse, coverage gates and factor explanations. This is our unvalidated heuristic, not Fitbit Daily Readiness.
+- Add reconciled daily SpO2, respiration and signed skin-temperature delta; missing baseline stays null.
+- Persist client-provided IDs before creating meals/water; reconcile interrupted creates/deletes by read-back without resubmission. Legacy uncertain records need manual inspection.
+- Add linked, non-atomic meal/water correction drafts and account-scoped operation discovery.
+- Install shared namespaced skills alongside MCP registration for Codex and Claude Code; preserve edited/unowned skills.
+- Distribute a tested npm tarball and SHA-256 checksum through GitHub prerelease; include update/removal instructions and compatibility matrix.
+- Real Google OAuth, Fitbit Air parity, live diary and model-driven client scenarios remain unverified. No npm registry publication.
+
+
 ## 0.1.0-alpha.2 — 2026-10-17
 
 - Add normalized daily/period summaries for activity, sleep, resting heart rate and HRV.
