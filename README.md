@@ -30,6 +30,7 @@ Demo uses synthetic records and makes no Google requests. Live setup needs your 
 - Stable write IDs, read-only reconciliation of interrupted writes/deletes, linked non-atomic meal/water corrections.
 - Personal-relative recovery model with a 28-day baseline and explicit factors; SpO2, respiration and skin-temperature deltas.
 - One-command MCP plus shared skills installation for Codex/Claude Code; plugin manifests also included.
+- Claude Desktop local configuration installer and shared MCP prompts; [setup](docs/desktop.md).
 - CI for synthetic checks on macOS, Windows and Linux. Real OAuth/client verification is tracked separately.
 
 Actual API compatibility, data coverage and app presentation still need live validation. Normalized summaries expose activity/sleep/heart/vitals with explicit coverage. Our recovery heuristic is not Fitbit Daily Readiness or a clinically validated score.
@@ -40,7 +41,7 @@ For release installation, client setup, updating and removal see [installation](
 
 Photo or text in a compatible AI client → proposed dishes, portions and approximate macros → local preview → explicit save request → Google Health records → read-back and diary verification.
 
-Values describe the whole dish portion. Photos cannot establish exact weight or hidden ingredients. Fitbit Air has no screen; nutrition records belong in Google Health and the conversation. Ordinary web/mobile ChatGPT/Claude connections are a later milestone.
+Values describe the whole dish portion. Photos cannot establish exact weight or hidden ingredients. Fitbit Air has no screen; nutrition records belong in Google Health and the conversation. For ordinary chats see the [client/plan matrix](docs/chat-clients.md); Claude Desktop now has a local installer. Web/mobile remote connections remain a later milestone.
 
 ## Privacy
 

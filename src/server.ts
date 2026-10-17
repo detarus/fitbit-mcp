@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { version } from "./version.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -93,5 +94,10 @@ export function createMcp(api: HealthApi, ops: Operations, auth?: Auth) {
     description: "Remove only the known Google records created by this operation, after explicit user intent. Blocks uncertain records; verifies deletion. Use fitbit_preview_correction for a linked replacement; this is not atomic.",
     inputSchema: { ...id, confirm: z.literal(true) }, annotations: mutate,
   }, args => result(() => ops.remove(args.operationId, args.confirm)));
+  for (const name of ["setup", "review", "nutrition"]) {
+    server.registerPrompt("fitbit_" + name, { description: "Shared fitbit-mcp " + name + " workflow; use with the connected Fitbit tools." }, async () => ({
+      messages: [{ role: "user" as const, content: { type: "text" as const, text: readFileSync(new URL("../skills/" + name + "/SKILL.md", import.meta.url), "utf8").replace(/^---[\s\S]*?---\s*/, "") } }],
+    }));
+  }
   return server;
 }

@@ -4,6 +4,7 @@ import { mkdtemp, rm, copyFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
+import { pathToFileURL } from "node:url";
 
 const root = resolve(".");
 const nodeDirectory = dirname(process.execPath);
@@ -33,6 +34,10 @@ try {
   assert(result.removed.items.every(item => item.state === "deleted"));
   const recovery = JSON.parse(execFileSync(process.execPath, [binary, "recovery", "--demo", "--date", "2026-10-17"], { encoding: "utf8", timeout: 30000 }));
   assert(recovery.demo && recovery.status === "calculated" && recovery.baseline.pairedDays === 28);
+  const { installDesktop } = await import(pathToFileURL(join(installed, "dist", "desktop.js")).href);
+  const desktopPath = join(temporary, "desktop", "claude_desktop_config.json");
+  assert((await installDesktop(desktopPath, true)).changed);
+  assert(!(await installDesktop(desktopPath, true)).changed);
   await copyFile(join(temporary, packed.filename), join(root, packed.filename));
   console.log(JSON.stringify({ package: packed.filename, installedOutsideRepository: true, demoRoundtrip: "passed", googleRequests: 0 }));
 } finally { await rm(temporary, { recursive: true, force: true }); }

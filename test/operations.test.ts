@@ -178,3 +178,15 @@ it("expires untouched drafts but resumes a started multi-dish operation after a 
   expect((await ops.commit(input.requestId, true)).items.every(i => i.state === "verified")).toBe(true);
   expect(create).toHaveBeenCalledTimes(2);
 });
+
+it("repeats the same meal on a new date, cancels untouched drafts and blocks writes after permission removal", async () => {
+  const first = meal(), second = { ...meal(), at: "2026-10-18T13:00:00+03:00" };
+  await ops.preview("meal", first); await ops.commit(first.requestId, true);
+  await ops.preview("meal", second); await ops.commit(second.requestId, true);
+  expect((await ops.status(first.requestId)).items[0].name).not.toBe((await ops.status(second.requestId)).items[0].name);
+  const draft = meal(); await ops.preview("meal", draft);
+  const restricted = new Operations(store, api, async () => false);
+  await expect(restricted.commit(draft.requestId, true)).rejects.toMatchObject({ code: "WRITE_DISABLED" });
+  expect((await restricted.status(draft.requestId)).items[0].state).toBe("pending");
+  expect((await ops.cancel(draft.requestId)).cancelled).toBe(true);
+});

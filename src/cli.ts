@@ -16,6 +16,7 @@ import { createMcp } from "./server.js";
 import { report, compareReports, comparisonRange, domainsSchema } from "./reports.js";
 import { publicError } from "./errors.js";
 import { recovery } from "./recovery.js";
+import { installDesktop } from "./desktop.js";
 import { installSkills, registerMcp, type ClientName } from "./install.js";
 import { typeSchema, rangeSchema } from "./schema.js";
 
@@ -26,7 +27,7 @@ async function main() {
   });
   const command = positionals[0] || "serve";
   if (values.help || command === "help") {
-    console.log("fitbit-mcp: setup --credentials /absolute/client.json [--nutrition-write]; auth [--no-open]; doctor [--live]; serve [--demo]; demo; demo-check; read --type steps --start YYYY-MM-DD --end YYYY-MM-DD; report --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; compare --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; recovery --date YYYY-MM-DD [--demo]; install --client codex|claude [--skills-only]; disconnect");
+    console.log("fitbit-mcp: setup --credentials /absolute/client.json [--nutrition-write]; auth [--no-open]; doctor [--live]; serve [--demo]; demo; demo-check; read --type steps --start YYYY-MM-DD --end YYYY-MM-DD; report --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; compare --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; recovery --date YYYY-MM-DD [--demo]; install --client codex|claude|claude-desktop [--skills-only] [--demo]; disconnect");
     return;
   }
   const demo = command === "demo" || command === "demo-check" || !!values.demo;
@@ -67,13 +68,17 @@ async function main() {
       const type = typeSchema.parse(values.type), range = rangeSchema.parse({ startDate: values.start, endDate: values.end });
       output = await api.points(type, range.startDate, range.endDate);
     } else if (command === "install") {
-      if (!["codex", "claude"].includes(values.client || "")) throw new Error("Choose --client codex or --client claude");
+      if (values.client === "claude-desktop") {
+        if (values["skills-only"]) throw new Error("--skills-only applies to codex or claude, not Claude Desktop"); output = await installDesktop(undefined, demo); }
+      else {
+      if (!["codex", "claude"].includes(values.client || "")) throw new Error("Choose --client codex, claude or claude-desktop");
       const client = values.client as ClientName;
       output = await store.locked("install", async () => {
         const skills = await installSkills(client);
         if (!values["skills-only"]) await registerMcp(client);
         return { installed: client, skills, mcpRegistered: !values["skills-only"], note: "Restart the client. Use fitbit-setup, fitbit-review and fitbit-nutrition skills. Avoid enabling another plugin instance of the same MCP." };
       });
+      }
     } else if (command === "demo-check") {
       const requestId = randomUUID();
       const draft = await ops.preview("meal", { requestId, at: "2026-10-17T13:00:00+03:00", mealType: "LUNCH", dishes: [{ name: "Demo chicken", grams: 100, kcal: 165, protein: 31, fat: 3.6, carbs: 0, source: "user-provided" }] });
