@@ -1,0 +1,10 @@
+{
+  "name": "fitbit",
+  "version": "0.1.0-alpha.1",
+  "description": "Fitbit MCP reads and reviewed meal/water logs",
+  "author": {
+    "name": "Dmitrii Tareev"
+  },
+  "repository": "https://github.com/detarus/fitbit-mcp",
+  "license": "Apache-2.0"
+}

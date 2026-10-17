@@ -1,65 +1,55 @@
 # fitbit-mcp
 
-A cross-platform, local MCP server for Fitbit data via the Google Health API, with planned plugins and skills for Codex and Claude Code.
+Local Fitbit MCP via Google Health API, with read tools, reviewed meal/water writes, and shared skills for Codex and Claude Code.
 
-**Status: planning and initial setup. No runnable server or published package is available yet.** Features below are planned and require implementation and validation against real accounts.
+**Status: alpha implementation, awaiting live-account validation. No published npm release.** Follow the CI badge/status before relying on a build. Planned work is tracked in [ROADMAP.md](ROADMAP.md).
 
-## Scope
+## Try it
 
-This project focuses on Fitbit, including Fitbit Air. A broader integration for multiple fitness-tracker providers will be a separate project.
+Node.js 24 LTS and pnpm 10.20.0 are required.
 
-## Planned capabilities
+```sh
+git clone https://github.com/detarus/fitbit-mcp.git
+cd fitbit-mcp
+pnpm install --frozen-lockfile
+pnpm check
+node dist/cli.js demo-check
+```
 
-- Read available activity, sleep, heart-rate, HRV, and workout data.
-- Produce daily summaries, weekly reviews, and period comparisons.
-- Record meals with individual dishes, portions, calories, protein, fat, and carbohydrates.
-- Log water intake and correct or remove entries created by this integration where supported.
-- Accept structured input from AI clients working with photos, text, or food labels.
-- Discover account capabilities and granted permissions instead of assuming every metric is available.
+Until the initial CI-generated lockfile is committed, use pnpm install --no-frozen-lockfile once.
 
-Data availability depends on the device, account, permissions, and Google Health API support.
+**[Testing on Mac: Russian](docs/TESTING.ru.md) · [English](docs/TESTING.md)**
 
-## Meal logging workflow
+Demo uses synthetic records and makes no Google requests. Live setup needs your own Google Cloud Desktop OAuth client and browser consent. Keep credentials outside the repository.
 
-1. Share a meal photo, description, or nutrition label with a compatible AI client.
-2. Review the proposed dishes, portions, and estimated nutritional values.
-3. Ask the client to save the meal.
-4. The MCP server validates and writes the entries, then checks the result.
+## Implemented alpha surface
 
-Photo-based nutritional values are estimates. Image interpretation belongs to the AI client; the server handles structured data, validation, and API operations.
+- Google OAuth with loopback callback, state and PKCE; explicit terminal authorization.
+- Status/device metadata, bounded raw data reads and daily wearable activity rollups.
+- Local immutable meal/water previews, explicit commits, per-item read-back and duplicate protection for the same operation.
+- Removal of known records created by an operation; uncertain outcomes block automatic replay.
+- Shared setup, review and nutrition skills; initial Codex/Claude Code plugin manifests.
+- CI for synthetic checks on macOS, Windows and Linux. Real OAuth/client verification is tracked separately.
 
-Food entries are written to Google Health. Fitbit Air has no display; showing dish details on the tracker is outside this project's scope. App presentation must be verified during integration testing.
+Actual API compatibility, data coverage and app presentation still need live validation. Complete health summaries and automatic reconciliation are not finished.
 
-## Architecture and proposed stack
+## Meal workflow
 
-- TypeScript with strict typing and a supported Node.js LTS release.
-- Official MCP TypeScript SDK and Zod validation.
-- Local stdio transport first.
-- Shared server with separate Codex and Claude Code plugin packages.
-- Vitest and GitHub Actions checks on macOS, Windows, and Linux.
+Photo or text in a compatible AI client → proposed dishes, portions and approximate macros → local preview → explicit save request → Google Health records → read-back and diary verification.
 
-Local MCP configuration does not automatically connect ordinary web or mobile chats. ChatGPT and Claude chat integration is a separate milestone, subject to each client's connection and permission requirements.
+Values describe the whole dish portion. Photos cannot establish exact weight or hidden ingredients. Fitbit Air has no screen; nutrition records belong in Google Health and the conversation. Ordinary web/mobile ChatGPT/Claude connections are a later milestone.
 
-## Roadmap
+## Privacy
 
-See [ROADMAP.md](ROADMAP.md) for the detailed task list, dependencies, acceptance criteria, current focus, and progress updates. The plan is currently maintained in Russian; English and Russian release documentation is planned.
+Tokens and write journals stay in a per-user directory with POSIX permissions or Windows ACLs. They are not encrypted by this application. Tool results may be sent to the AI client's provider. No credentials or private account data are needed in CI.
 
-## Privacy and access
+Disconnect removes local tokens; revoke the Google grant separately. Journals retain meal data for reconciliation. Never attach them or meal photos to public issues.
 
-The intended default is local execution, with credentials stored outside the repository and never returned by MCP tools. Health data returned to an AI client may be sent to that client's model provider.
+## Project
 
-Write access will be opt-in by category. Google OAuth configuration, verification requirements, and token lifetime constraints must be documented before release.
+This repository focuses on Fitbit. A future universal tracker integration will be a separate project.
 
-Never commit OAuth credentials, access or refresh tokens, personal health data, or meal photos. Use synthetic data in issues and tests.
+See [architecture](docs/architecture.md), [research](docs/research.md), [contributing](CONTRIBUTING.md), [security](SECURITY.md) and the maintained [roadmap](ROADMAP.md).
 
-## Contributing
-
-Design feedback and use cases are welcome through GitHub issues. Please describe the client, operating system, expected workflow, and relevant API constraints without including secrets or personal health records.
-
-## License
-
-Copyright 2026 Dmitrii Tareev and fitbit-mcp contributors.
-
-Licensed under the [Apache License, Version 2.0](LICENSE).
-
-This is an independent project and is not affiliated with or endorsed by Google or Fitbit.
+Copyright 2026 Dmitrii Tareev and fitbit-mcp contributors. [Apache-2.0](LICENSE).
+Independent project; not affiliated with Google or Fitbit.

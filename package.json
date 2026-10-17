@@ -1,0 +1,50 @@
+{
+  "name": "@detarus/fitbit-mcp",
+  "version": "0.1.0-alpha.1",
+  "description": "Local Fitbit MCP via Google Health API",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@10.20.0",
+  "bin": {
+    "fitbit-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "plugins",
+    "skills",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm typecheck && pnpm build && pnpm test",
+    "demo": "node dist/cli.js demo",
+    "doctor": "node dist/cli.js doctor"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "google-auth-library": "10.3.0",
+    "proper-lockfile": "4.1.2",
+    "zod": "4.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/proper-lockfile": "4.1.4",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/detarus/fitbit-mcp.git"
+  }
+}

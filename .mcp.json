@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "fitbit": {
+      "command": "fitbit-mcp",
+      "args": [
+        "serve"
+      ]
+    }
+  }
+}

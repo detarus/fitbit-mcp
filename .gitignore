@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*client_secret*.json
+credentials*.json
+tokens*.json
+.fitbit-mcp/
+*.tgz
+.DS_Store
