@@ -29,11 +29,11 @@ export function createMcp(api: HealthApi, ops: Operations, auth?: Auth) {
   server.registerTool("fitbit_devices", { description: "Read paired device metadata.", inputSchema: {}, annotations: read }, () => result(() => api.info()));
   server.registerTool("fitbit_request_id", { description: "Generate a UUID for one new meal/water draft. Reuse the same ID on retries; use a new ID for a new occurrence.", inputSchema: {}, annotations: { ...read, openWorldHint: false } }, () => result(async () => ({ requestId: randomUUID() })));
   server.registerTool("fitbit_read", {
-    description: "Read 1–14 civil calendar days, endDate exclusive. Sleep is grouped by wake date. Raw samples may overlap: do not sum them as daily totals. At most 500 points; incomplete results are explicit.",
-    inputSchema: { type: typeSchema, ...rangeSchema.shape }, annotations: read,
+    description: "Read 1–14 civil calendar days, endDate exclusive. Sleep is grouped by wake date. Raw samples may overlap: do not sum them as daily totals. At most 500 points per call; if incomplete, pass nextPageToken as pageToken with the same type/dates to continue.",
+    inputSchema: { type: typeSchema, ...rangeSchema.shape, pageToken: z.string().max(8192).optional() }, annotations: read,
   }, args => result(async () => {
     const range = rangeSchema.parse(args);
-    return api.points(args.type, range.startDate, range.endDate);
+    return api.points(args.type, range.startDate, range.endDate, args.pageToken);
   }));
   server.registerTool("fitbit_activity", {
     description: "Daily server-reconciled wearable activity for 1–14 civil days (end exclusive). Returns raw rollup fields; missing values are not zero. A failed domain is explicit.",

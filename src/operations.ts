@@ -75,8 +75,10 @@ export class Operations {
             const key = op.kind === "nutrition-log" ? "nutritionLog" : "hydrationLog";
             const expected = item.body[key], actual = value[key];
             if (!actual) throw new AppError("VERIFY", "Created resource did not contain the expected record.");
-            if (key === "nutritionLog" && (actual.foodDisplayName !== expected.foodDisplayName || actual.energy?.kcal !== expected.energy?.kcal || actual.totalFat?.grams !== expected.totalFat?.grams || actual.totalCarbohydrate?.grams !== expected.totalCarbohydrate?.grams || actual.nutrients?.find((n: Json) => n.nutrient === "PROTEIN")?.quantity?.grams !== expected.nutrients[0].quantity.grams)) throw new AppError("VERIFY", "Saved nutrition differs from the reviewed preview. Inspect the diary.");
-            if (key === "hydrationLog" && actual.amountConsumed?.milliliters !== expected.amountConsumed.milliliters) throw new AppError("VERIFY", "Saved water amount differs from the preview.");
+            if (Date.parse(actual.interval?.startTime || "") !== Date.parse(expected.interval.startTime)) throw new AppError("VERIFY", "Saved record time differs from the reviewed preview.");
+            const scalar = (value: Json | undefined, field: string) => value ? Number(value[field] ?? 0) : undefined;
+            if (key === "nutritionLog" && (actual.foodDisplayName !== expected.foodDisplayName || actual.mealType !== expected.mealType || scalar(actual.energy, "kcal") !== expected.energy?.kcal || scalar(actual.totalFat, "grams") !== expected.totalFat?.grams || scalar(actual.totalCarbohydrate, "grams") !== expected.totalCarbohydrate?.grams || scalar(actual.nutrients?.find((n: Json) => n.nutrient === "PROTEIN")?.quantity, "grams") !== expected.nutrients[0].quantity.grams)) throw new AppError("VERIFY", "Saved nutrition differs from the reviewed preview. Inspect the diary.");
+            if (key === "hydrationLog" && scalar(actual.amountConsumed, "milliliters") !== expected.amountConsumed.milliliters) throw new AppError("VERIFY", "Saved water amount differs from the preview.");
             item.state = "verified"; delete item.error;
           } catch (error) { item.error = publicError(error); }
           await this.store.write(this.file(id), op);

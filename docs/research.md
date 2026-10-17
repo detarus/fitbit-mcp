@@ -38,3 +38,7 @@ OAuth grant availability, exact daily-metric filter names, account/device covera
 - [Claude MCP](https://code.claude.com/docs/en/mcp)
 
 Ship a directly testable local MCP first. Plugin skill files are shared; client installation must be tested separately and must not register duplicate servers.
+
+## Anonymous portion representation
+
+The nutrition guide's example includes serving.amount alone, but the resource reference marks serving.foodMeasurementUnit required when a serving object is supplied. The alpha omits this optional serving object and records portion grams in foodDisplayName. Macro values still apply to the whole portion. This avoids inventing a food measurement-unit resource ID; verify the resulting diary display live.

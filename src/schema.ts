@@ -46,9 +46,9 @@ export function nutritionBodies(meal: Meal) {
   return meal.dishes.map(d => ({
     nutritionLog: {
       interval: { startTime: meal.at, endTime: new Date(Date.parse(meal.at) + 1000).toISOString(), startUtcOffset: offsetSeconds(meal.at) + "s", endUtcOffset: offsetSeconds(meal.at) + "s" },
-      foodDisplayName: d.name, mealType: meal.mealType,
+      foodDisplayName: d.name + " (" + d.grams + " g)", mealType: meal.mealType,
       energy: { kcal: d.kcal }, totalFat: { grams: d.fat }, totalCarbohydrate: { grams: d.carbs },
-      nutrients: [{ nutrient: "PROTEIN", quantity: { grams: d.protein } }], serving: { amount: 1 },
+      nutrients: [{ nutrient: "PROTEIN", quantity: { grams: d.protein } }],
     },
   }));
 }

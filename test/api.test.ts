@@ -12,6 +12,16 @@ describe("Google Health transport", () => {
     const bad = new GoogleHealth(auth, vi.fn(async () => response({ nextPageToken: "same" })));
     await expect(bad.points("steps", "2026-10-01", "2026-10-02")).rejects.toMatchObject({ code: "PAGINATION" });
   });
+  it("returns a continuation token rather than losing dense intraday data", async () => {
+    let page = 0;
+    const fetcher = vi.fn(async () => response({ dataPoints: [{ heartRate: { beatsPerMinute: 65 } }], nextPageToken: "cursor-" + ++page }));
+    const api = new GoogleHealth(auth, fetcher);
+    const first = await api.points("heart-rate", "2026-10-01", "2026-10-02");
+    expect(first.complete).toBe(false); expect(first.nextPageToken).toBe("cursor-20");
+    fetcher.mockResolvedValueOnce(response({ dataPoints: [] }));
+    expect((await api.points("heart-rate", "2026-10-01", "2026-10-02", first.nextPageToken)).complete).toBe(true);
+    expect(fetcher.mock.calls[20][0]).toContain("pageToken=cursor-20");
+  });
   it("does not retry a failed create or echo upstream body secrets", async () => {
     const fetcher = vi.fn(async () => response({ error: "synthetic-private-value" }, 503));
     const api = new GoogleHealth(auth, fetcher);

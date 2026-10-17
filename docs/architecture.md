@@ -47,7 +47,7 @@ Read retries are bounded, honour short Retry-After delays, and do not retry earl
 
 ## Reads and time
 
-Raw reads return provider fields and an explicit pagination completeness flag. Missing is never replaced with zero. Civil-date ranges are end-exclusive and bounded to 14 days. Sleep uses wake dates. Daily activity uses Google's civil-day rollups and google-wearables; raw samples are not summed.
+Raw reads return provider fields and an explicit pagination completeness flag. Dense streams return a continuation token after 500 points; clients can continue using the same type and date range. Missing is never replaced with zero. Civil-date ranges are end-exclusive and bounded to 14 days. Sleep uses wake dates. Daily activity uses Google's civil-day rollups and google-wearables; raw samples are not summed.
 
 This alpha does not yet provide a complete normalized daily/weekly health summary. Device compatibility and API responses must be verified on the real account.
 

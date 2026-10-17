@@ -16,6 +16,8 @@ describe("calendar and nutrition contracts", () => {
   it("maps whole-portion macros, including protein in nutrients, without per-100g multiplication", () => {
     const body = nutritionBodies(mealSchema.parse(meal))[0].nutritionLog;
     expect(body.energy.kcal).toBe(165);
+    expect(body.foodDisplayName).toBe("Chicken (100 g)");
+    expect(body).not.toHaveProperty("serving");
     expect(body.nutrients[0]).toEqual({ nutrient: "PROTEIN", quantity: { grams: 31 } });
     expect(body.interval.startUtcOffset).toBe("10800s");
     expect(offsetSeconds("2026-10-17T13:00:00-04:30")).toBe(-16200);

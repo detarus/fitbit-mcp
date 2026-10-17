@@ -16,7 +16,7 @@ export interface HealthApi {
   demo: boolean;
   accountKey(): Promise<string>;
   info(): Promise<unknown>;
-  points(type: DataType, start: string, end: string): Promise<Json>;
+  points(type: DataType, start: string, end: string, pageToken?: string): Promise<Json>;
   daily(type: DataType, start: string, end: string): Promise<Json>;
   create(type: "nutrition-log" | "hydration-log", body: Json): Promise<Json>;
   get(name: string): Promise<Json>;
@@ -76,9 +76,9 @@ export class GoogleHealth implements HealthApi {
     await this.auth.requireScope("settings.readonly");
     return this.request("users/me/pairedDevices");
   }
-  async points(type: DataType, start: string, end: string): Promise<Json> {
+  async points(type: DataType, start: string, end: string, pageToken = ""): Promise<Json> {
     await this.auth.requireScope(scopesFor[type]);
-    let next = "", points: Json[] = [];
+    let next = pageToken, points: Json[] = [];
     const seen = new Set<string>();
     for (let i = 0; i < 20; i++) {
       const params = new URLSearchParams({ filter: filterFor(type, start, end), pageSize: "25" });
@@ -91,7 +91,7 @@ export class GoogleHealth implements HealthApi {
       if (seen.has(next)) throw new AppError("PAGINATION", "Google repeated a page token; results are incomplete.");
       seen.add(next);
     }
-    return { dataPoints: points, complete: false, source: "google-health", note: "Stopped after 20 pages. Use a shorter date range." };
+    return { dataPoints: points, complete: false, nextPageToken: next, source: "google-health", note: "Stopped after 20 pages. Continue with this nextPageToken as pageToken and the SAME type/date range. Do not describe this batch as the full period." };
   }
   async daily(type: DataType, start: string, end: string): Promise<Json> {
     await this.auth.requireScope(scopesFor[type]);
