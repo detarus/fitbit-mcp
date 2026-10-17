@@ -1,33 +1,44 @@
-# Alpha validation
+# Validation
 
 Last updated: 2026-10-17.
 
-## Current tested implementation
+## Alpha.2 implementation
 
-Implementation commit: [383fd0d](https://github.com/detarus/fitbit-mcp/commit/383fd0d55c932ee13a98eee0d5ab4d0942418690).
-CI: [run 39030626562](https://github.com/detarus/fitbit-mcp/actions/runs/39030626562).
+Commit: [728808f](https://github.com/detarus/fitbit-mcp/commit/728808f68782a4aae923b20d583f78c5a7f5b8d7).
+CI: [run 39032656262](https://github.com/detarus/fitbit-mcp/actions/runs/39032656262).
 
-**Result: passed on macOS, Windows and Ubuntu.** Typechecking, build, 23 synthetic tests, demo-check and package dry-run all passed. Plugin manifests are included in the package contents. Synthetic tests cover schema validation, date boundaries, macro mapping, dense-stream continuation, API error handling, write journals, repeated commits, crash states, account binding, session serialization, auth setup/disconnect, package manifests, and a real stdio MCP client/server roundtrip.
+### Automated evidence
 
-A shared session lock prevents setup, sign-in or disconnect from switching accounts during a write. Portion weight is preserved in the manual food display name; the optional serving object is omitted rather than inventing a catalogue unit ID. Created record time and macros are checked against the preview.
+- Typechecking and build.
+- 44 synthetic tests: schema validation, calendar/DST boundaries, activity units, explicit zeros and gaps, sleep duplicates/overlaps, paired comparisons and partial domains.
+- A real stdio MCP client/server session exercises meal writes, summaries and comparisons with synthetic data.
+- Loopback OAuth tests cover state, S256 PKCE, timeout and partial consent without contacting Google.
+- Refresh tests cover rotation, metadata failure recovery, revoked grants, error redaction and serialization across two independent Node processes.
+- A real npm tarball is installed outside the repository; its CLI and demo write/read/delete cycle are exercised without Google.
+- Claude Code 2.1.302 validates the plugin in strict mode.
+- Codex 0.163.0 registers and reads back the MCP configuration.
 
-The initial pnpm lockfile was generated and committed by successful CI; subsequent installs use frozen-lockfile.
+**Final result: all jobs passed.** macOS, Windows and Ubuntu each passed build/typecheck, all 44 tests, demo-check, and installation of the actual tarball outside the repository. Client configuration checks run on Ubuntu; that is not proof of an authenticated conversation or plugin installation on every OS.
+
+### Downloadable package
+
+The CI run's Artifacts section contains package-macos-latest, package-windows-latest and package-ubuntu-latest. Each ZIP contains a tested detarus-fitbit-mcp-0.1.0-alpha.2.tgz. GitHub sign-in may be required to download artifacts. This is not an npm registry publication.
+
+After extracting the ZIP, install its tarball with npm install --global /absolute/path/detarus-fitbit-mcp-0.1.0-alpha.2.tgz. Node.js 24 is required; installation fetches runtime dependencies from npm. Run fitbit-mcp demo-check first.
 
 ## Previous checks
 
-- [39030383054](https://github.com/detarus/fitbit-mcp/actions/runs/39030383054): 18 tests on macOS, Windows and Ubuntu.
-- [39030483964](https://github.com/detarus/fitbit-mcp/actions/runs/39030483964): 22 tests on all three OSes, including account-switch serialization and plugin package contents.
+- [39030626562](https://github.com/detarus/fitbit-mcp/actions/runs/39030626562): alpha.1, 23 tests, build/demo/package dry run on macOS, Windows and Ubuntu.
+- [39032540682](https://github.com/detarus/fitbit-mcp/actions/runs/39032540682): alpha.2 reports and auth flow, 43 tests and real packed installation on all three OSes, actual CLI configuration checks.
 
-## What remains unverified
+## Manual acceptance still open
 
-No Google credentials or personal health records were used. Synthetic checks do not establish real Google OAuth, device-data parity, diary visibility or actual Codex/Claude plugin installation.
+No Google credentials or personal health records were used in CI. Follow [TESTING.ru.md](TESTING.ru.md) or [TESTING.md](TESTING.md).
 
-Follow [TESTING.ru.md](TESTING.ru.md) or [TESTING.md](TESTING.md).
+1. Mac: actual Desktop OAuth, doctor --live and token renewal.
+2. Fitbit Air: compare seven days against the mobile app and verify normalized units/coverage.
+3. Meal/water: create, read-back, visible diary contents, retry without duplicates and removal.
+4. Codex and Claude Code: authenticated conversational use and plugin skills.
+5. Windows/Linux: real OAuth, browser integration and client registration.
 
-1. Mac: Desktop OAuth, doctor --live, token renewal.
-2. Fitbit Air: compare seven days against the mobile app.
-3. Meal/water: creation, read-back, visible diary contents, duplicate retry, removal.
-4. Codex and Claude Code: registration and actual skill/plugin use.
-5. Windows/Linux: real OAuth and per-user storage behaviour.
-
-Report only OS/client versions, pass/fail and error codes. The package is an alpha built from the repository; it is not published to npm.
+Report only OS/client versions, pass/fail and error codes. Never share credentials, tokens or health records.
