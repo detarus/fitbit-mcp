@@ -58,11 +58,7 @@ jobs:
           claude --version
           claude mcp add --help
       - name: Install MCP and shared skills for both clients, including repeat installation
-        run: |
-          node dist/cli.js install --client codex
-          node dist/cli.js install --client claude
-          node dist/cli.js install --client codex
-          node dist/cli.js install --client claude
+        run: node scripts/client-smoke.mjs
       - name: Validate Claude plugin with the actual CLI
         run: npm exec --yes --package=@anthropic-ai/claude-code@2.1.302 -- claude plugin validate . --strict
       - name: Register the demo MCP with actual Codex CLI

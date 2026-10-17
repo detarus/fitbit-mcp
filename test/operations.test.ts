@@ -164,3 +164,17 @@ describe("recovery and corrections", () => {
     await expect(ops.reconcile(input.requestId)).rejects.toMatchObject({ code: "ACCOUNT_MISMATCH" });
   });
 });
+
+it("expires untouched drafts but resumes a started multi-dish operation after a long interruption", async () => {
+  const expired = meal(); await ops.preview("meal", expired);
+  const draft: any = await store.read(ops.file(expired.requestId)); draft.createdAt = "2020-01-01T00:00:00Z"; await store.write(ops.file(expired.requestId), draft);
+  await expect(ops.commit(expired.requestId, true)).rejects.toMatchObject({ code: "PREVIEW_EXPIRED" });
+  const input = meal(); input.dishes.push({ ...input.dishes[0], name: "Rice" }); await ops.preview("meal", input);
+  const original = api.create.bind(api);
+  const create = vi.spyOn(api, "create").mockImplementationOnce(async (kind, body) => { await original(kind, body); throw new Error("lost"); });
+  await ops.commit(input.requestId, true);
+  const interrupted: any = await store.read(ops.file(input.requestId)); interrupted.createdAt = "2020-01-01T00:00:00Z"; await store.write(ops.file(input.requestId), interrupted);
+  await ops.reconcile(input.requestId);
+  expect((await ops.commit(input.requestId, true)).items.every(i => i.state === "verified")).toBe(true);
+  expect(create).toHaveBeenCalledTimes(2);
+});

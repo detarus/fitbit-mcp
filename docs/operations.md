@@ -24,3 +24,5 @@ Committing links the two journals, removes originals with verification, then sav
 The server only changes resources known to its journals. External diary edits can invalidate read-back. A separate removal affects the selected operation's own records, not arbitrary records or an entire correction chain.
 
 Synthetic tests cover accepted writes with lost responses, crashes/restarts, 404 ambiguity, payload conflicts, delete uncertainty, concurrent clients and partial corrections. These are not evidence of real Google app behavior.
+
+Untouched drafts expire after 24 hours. Once an operation starts, its existing ID can be resumed after a longer interruption; expiry does not force a new submission. Corrections check expiry before starting original deletion.

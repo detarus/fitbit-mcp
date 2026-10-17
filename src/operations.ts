@@ -6,7 +6,7 @@ import { type HealthApi, type Json, validateName } from "./api.js";
 import { mealSchema, waterSchema, nutritionBodies, offsetSeconds } from "./schema.js";
 
 type Item = { body: Json; state: "pending" | "sending" | "created" | "verified" | "unknown" | "deleting" | "deleted"; expectedName?: string; name?: string; error?: unknown };
-type Operation = { id: string; kind: "nutrition-log" | "hydration-log"; account: string; fingerprint: string; createdAt: string; preview: unknown; items: Item[]; cancelled?: boolean; correctionOf?: string; replacedBy?: string };
+type Operation = { id: string; kind: "nutrition-log" | "hydration-log"; account: string; fingerprint: string; createdAt: string; startedAt?: string; preview: unknown; items: Item[]; cancelled?: boolean; correctionOf?: string; replacedBy?: string };
 const idSchema = z.string().uuid();
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export class Operations {
@@ -96,11 +96,14 @@ export class Operations {
     }));
   }
   async save(op: Operation) {
+    if (!op.startedAt && op.items.some(i => i.state === "pending")) {
+      if (op.items.every(i => i.state === "pending") && Date.now() - Date.parse(op.createdAt) > 86400000) throw new AppError("PREVIEW_EXPIRED", "Preview is older than 24 hours. Review a new draft before starting.");
+      op.startedAt = new Date().toISOString(); await this.persist(op);
+    }
     for (const [index, item] of op.items.entries()) {
       if (["sending", "unknown", "deleting"].includes(item.state)) break;
       if (item.state === "deleted" || item.state === "verified") continue;
       if (item.state === "pending") {
-        if (Date.now() - Date.parse(op.createdAt) > 86400000) throw new AppError("PREVIEW_EXPIRED", "Preview is older than 24 hours. Inspect existing records before making a new draft.");
         item.expectedName = await this.api.nameFor(op.kind, "fm-" + op.id.toLowerCase() + "-" + index);
         item.state = "sending"; await this.persist(op);
         try {
@@ -132,6 +135,7 @@ export class Operations {
         if (!old.replacedBy) {
           if (Date.now() - Date.parse(op.createdAt) > 86400000) throw new AppError("PREVIEW_EXPIRED", "Review a new correction before deleting originals.");
           if (old.items.some(i => i.state !== "verified")) throw new AppError("CORRECTION_BLOCKED", "Reconcile the original operation first.");
+          op.startedAt = new Date().toISOString(); await this.persist(op);
           old.replacedBy = id; await this.persist(old);
         }
         await this.deleteKnown(old);
