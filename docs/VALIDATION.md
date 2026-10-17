@@ -58,3 +58,16 @@ Implementation commit: [c87c66c1ae808537506c8d806f55f09da125e037](https://github
 Published [v0.1.0-alpha.3 prerelease](https://github.com/detarus/fitbit-mcp/releases/tag/v0.1.0-alpha.3) after the six test/config jobs. Contains `detarus-fitbit-mcp-0.1.0-alpha.3.tgz` (55949 bytes) and SHA256SUMS. Tarball SHA-256 reported by GitHub: `3f998982bb96f699bd3d0393e2761723b276dd2fd898e9ba95098c1e6eb97e94`.
 
 No private Google account, Fitbit device, real OAuth consent or personal health data was used. Model-driven invocation/image flows, Google acceptance of client-provided IDs, app diary rendering and actual Fitbit Air parity remain unverified. A custom recovery heuristic is not clinically validated. These limitations keep live-account roadmap tasks open.
+
+## Alpha.4 — 2026-10-17
+
+Implementation: [5b391a85e2df15e52ed386b1d66251113bdf13fe](https://github.com/detarus/fitbit-mcp/commit/5b391a85e2df15e52ed386b1d66251113bdf13fe).
+CI: [39067979468](https://github.com/detarus/fitbit-mcp/actions/runs/39067979468).
+
+- 71 synthetic tests in 13 files: prior recovery/write/auth coverage plus private-state link and permission checks, Windows explicit-grant removal, Desktop config preservation/conflicts, prompt discovery, cancellation, repeated dates and water correction.
+- Installed package outside checkout: CLI/demo/recovery and Desktop configuration with repeated installation.
+- Actual pinned Codex/Claude Code registration and skill installation on all three operating systems.
+- Windows regression discovered and fixed: avoid PowerShell Security module auto-loading when launched from PowerShell 7; apply ACLs through the Windows PowerShell .NET filesystem API.
+- Desktop UI itself, actual Google account, real photos and diary display remain unverified. Read the [scenario matrix](scenarios.md), [Desktop test](desktop.md) and [remaining roadmap dependencies](../ROADMAP.md).
+
+All six OS/client jobs passed; GitHub prerelease published: [alpha.4](https://github.com/detarus/fitbit-mcp/releases/tag/v0.1.0-alpha.4). Package detarus-fitbit-mcp-0.1.0-alpha.4.tgz, 64048 bytes; SHA-256 53b4c6599ca0425008475f27cc2524b6284d2852b20d21cbc2a8eda771fbc11c. SHA256SUMS is included in the release. No npm registry publication.
