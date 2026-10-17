@@ -42,15 +42,7 @@ Local MCP configuration does not automatically connect ordinary web or mobile ch
 
 ## Roadmap
 
-- [ ] Establish project structure, CI, and architecture decisions.
-- [ ] Implement Google OAuth setup, capability discovery, and local credential storage.
-- [ ] Validate reading real Fitbit data.
-- [ ] Validate meal and hydration writes, read-back, and removal of test entries.
-- [ ] Implement write previews, duplicate prevention, and partial-failure handling.
-- [ ] Package Codex and Claude Code plugins and workflow skills.
-- [ ] Verify installation and authentication on macOS, Windows, and Linux.
-- [ ] Publish an initial release with English and Russian setup documentation.
-- [ ] Add supported chat connections and the photo-to-meal workflow.
+See [ROADMAP.md](ROADMAP.md) for the detailed task list, dependencies, acceptance criteria, current focus, and progress updates. The plan is currently maintained in Russian; English and Russian release documentation is planned.
 
 ## Privacy and access
 
