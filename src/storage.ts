@@ -34,7 +34,11 @@ export class Store {
           "Set-Acl -LiteralPath $env:FITBIT_MCP_ACL_PATH -AclObject $acl",
         ].join("; ");
         await promisify(execFile)("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { windowsHide: true, env: { ...process.env, FITBIT_MCP_ACL_PATH: this.directory } });
-      } catch { throw new AppError("STORAGE", "Cannot restrict Windows data-directory ACL. Choose a private local directory."); }
+      } catch (cause) {
+        const error = new AppError("STORAGE", "Cannot restrict Windows data-directory ACL. Choose a private local directory.");
+        error.cause = cause; // Retained for local test diagnostics; publicError never exposes causes.
+        throw error;
+      }
     } else await chmod(this.directory, 0o700);
   }
   path(name: string) {
