@@ -14,8 +14,6 @@ pnpm check
 node dist/cli.js demo-check
 ```
 
-Если начальный lockfile ещё не появился после CI, один раз выполните pnpm install --no-frozen-lockfile. Не заменяйте frozen-install при обычном обновлении зависимостей.
-
 Ожидаемый результат demo-check: demo=true, googleRequests=0, сохранённое блюдо имеет state=verified, повтор не создаёт новую запись, удаление имеет state=deleted. Демонстрация полностью синтетическая.
 
 Для проверки самого MCP в режиме демо:

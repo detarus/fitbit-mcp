@@ -2,7 +2,7 @@
 
 Local Fitbit MCP via Google Health API, with read tools, reviewed meal/water writes, and shared skills for Codex and Claude Code.
 
-**Status: alpha implementation, awaiting live-account validation. No published npm release.** Follow the CI badge/status before relying on a build. Planned work is tracked in [ROADMAP.md](ROADMAP.md).
+**Status: testable alpha; real-account validation pending. No published npm release.** [CI passed](https://github.com/detarus/fitbit-mcp/actions/runs/39030626562): build, 23 synthetic tests and demo on macOS/Windows/Linux. Planned work is tracked in [ROADMAP.md](ROADMAP.md).
 
 ## Try it
 
@@ -15,8 +15,6 @@ pnpm install --frozen-lockfile
 pnpm check
 node dist/cli.js demo-check
 ```
-
-Until the initial CI-generated lockfile is committed, use pnpm install --no-frozen-lockfile once.
 
 **[Testing on Mac: Russian](docs/TESTING.ru.md) · [English](docs/TESTING.md)**
 

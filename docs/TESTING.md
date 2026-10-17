@@ -12,7 +12,7 @@ pnpm check
 node dist/cli.js demo-check
 ```
 
-Until the initial CI-generated lockfile is committed, bootstrap with pnpm install --no-frozen-lockfile. Demo must print demo=true and googleRequests=0, verified creation and deleted removal. No Google account is used.
+Demo must print demo=true and googleRequests=0, verified creation and deleted removal. No Google account is used.
 
 For live testing, create your own Google Cloud project, enable Google Health API, configure an External/Testing consent screen, add yourself as a test user, and download a Desktop OAuth client JSON outside the repository. Scopes are listed in [research](research.md) and the Russian walkthrough.
 
