@@ -1,7 +1,9 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { OAuth2Client } from "google-auth-library";
 import { Auth, type Config } from "../src/auth.js";
 import { Store } from "../src/storage.js";
@@ -117,3 +119,17 @@ it("clears a revoked grant and redacts upstream error bodies", async () => {
   expect(JSON.stringify(publicError(error))).not.toContain("synthetic-private-body");
   expect(await auth.record()).toBeUndefined();
 });
+
+it("refreshes once across two independent Node processes", async () => {
+  await store.write("tokens.json", { credentials: { ...credentials(), expiry_date: 0 }, scopes: [], accountId: "synthetic-user" });
+  const execute = promisify(execFile);
+  const args = [resolve("test/fixtures/refresh-worker.mjs"), dir];
+  const results = await Promise.all([
+    execute(process.execPath, args, { timeout: 15000 }),
+    execute(process.execPath, args, { timeout: 15000 }),
+  ]);
+  expect(results.map(r => JSON.parse(r.stdout))).toEqual([{ refreshedOrReused: true }, { refreshedOrReused: true }]);
+  expect((await readFile(join(dir, "refresh-calls.log"), "utf8")).trim().split("\n")).toEqual(["refresh"]);
+  expect((await authToken(store)).credentials.refresh_token).toBe("synthetic-rotated");
+});
+async function authToken(store: Store) { return (await store.read<any>("tokens.json"))!; }
