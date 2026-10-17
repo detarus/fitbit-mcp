@@ -2,7 +2,7 @@
 
 Local Fitbit MCP via Google Health API, with read tools, reviewed meal/water writes, and shared skills for Codex and Claude Code.
 
-**Status: testable alpha; real-account validation pending. No published npm release.** [CI passed](https://github.com/detarus/fitbit-mcp/actions/runs/39030626562): build, 23 synthetic tests and demo on macOS/Windows/Linux. Planned work is tracked in [ROADMAP.md](ROADMAP.md).
+**Status: alpha.2 implementation; real-account validation pending. No published npm release.** [CI passed](https://github.com/detarus/fitbit-mcp/actions/runs/39030626562): build, 23 synthetic tests and demo on macOS/Windows/Linux. Planned work is tracked in [ROADMAP.md](ROADMAP.md).
 
 ## Try it
 
@@ -16,20 +16,20 @@ pnpm check
 node dist/cli.js demo-check
 ```
 
-**[Testing on Mac: Russian](docs/TESTING.ru.md) · [English](docs/TESTING.md)**
+**[Testing on Mac: Russian](docs/TESTING.ru.md) · [English](docs/TESTING.md) · [Summary semantics](docs/reports.md)**
 
 Demo uses synthetic records and makes no Google requests. Live setup needs your own Google Cloud Desktop OAuth client and browser consent. Keep credentials outside the repository.
 
 ## Implemented alpha surface
 
 - Google OAuth with loopback callback, state and PKCE; explicit terminal authorization.
-- Status/device metadata, bounded raw data reads and daily wearable activity rollups.
+- Status/device metadata, bounded raw reads, daily wearable activity rollups, normalized summaries and code-calculated period comparisons.
 - Local immutable meal/water previews, explicit commits, per-item read-back and duplicate protection for the same operation.
 - Removal of known records created by an operation; uncertain outcomes block automatic replay.
 - Shared setup, review and nutrition skills; initial Codex/Claude Code plugin manifests.
 - CI for synthetic checks on macOS, Windows and Linux. Real OAuth/client verification is tracked separately.
 
-Actual API compatibility, data coverage and app presentation still need live validation. Complete health summaries and automatic reconciliation are not finished.
+Actual API compatibility, data coverage and app presentation still need live validation. Normalized summaries cover activity, sleep, resting pulse and HRV with explicit coverage; automatic reconciliation of uncertain writes is not finished.
 
 ## Meal workflow
 

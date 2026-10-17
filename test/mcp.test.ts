@@ -16,6 +16,11 @@ it("connects via real stdio and completes a synthetic meal roundtrip", async () 
       return JSON.parse((r.content as { type: string; text: string }[])[0].text);
     };
     expect((await invoke("fitbit_status")).demo).toBe(true);
+    const summary = await invoke("fitbit_summary", { startDate: "2026-10-01", endDate: "2026-10-03" });
+    expect(summary.summary.steps.total).toBe(13250);
+    expect(summary.summary.sleepMinutes.observedDays).toBe(1);
+    const comparison = await invoke("fitbit_compare", { startDate: "2026-10-08", endDate: "2026-10-10", domains: ["activity"] });
+    expect(comparison.comparisons.steps.pairedDays).toBe(2);
     const requestId = randomUUID();
     await invoke("fitbit_preview_meal", { requestId, at: "2026-10-17T13:00:00+03:00", mealType: "LUNCH", dishes: [{ name: "Synthetic rice", grams: 100, kcal: 130, protein: 2.7, fat: 0.3, carbs: 28, source: "user-provided" }] });
     expect((await invoke("fitbit_commit", { operationId: requestId, confirm: true })).items[0].state).toBe("verified");

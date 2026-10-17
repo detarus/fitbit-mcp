@@ -13,17 +13,18 @@ import { Auth } from "./auth.js";
 import { GoogleHealth, DemoHealth } from "./api.js";
 import { Operations } from "./operations.js";
 import { createMcp } from "./server.js";
+import { report, compareReports, comparisonRange, domainsSchema } from "./reports.js";
 import { publicError } from "./errors.js";
 import { typeSchema, rangeSchema } from "./schema.js";
 
 async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
-    options: { credentials: { type: "string" }, "nutrition-write": { type: "boolean" }, "no-open": { type: "boolean" }, live: { type: "boolean" }, demo: { type: "boolean" }, type: { type: "string" }, start: { type: "string" }, end: { type: "string" }, client: { type: "string" }, help: { type: "boolean" } },
+    options: { credentials: { type: "string" }, "nutrition-write": { type: "boolean" }, "no-open": { type: "boolean" }, live: { type: "boolean" }, demo: { type: "boolean" }, type: { type: "string" }, start: { type: "string" }, end: { type: "string" }, "domains": { type: "string" }, "previous-start": { type: "string" }, "previous-end": { type: "string" }, client: { type: "string" }, help: { type: "boolean" } },
   });
   const command = positionals[0] || "serve";
   if (values.help || command === "help") {
-    console.log("fitbit-mcp: setup --credentials /absolute/client.json [--nutrition-write]; auth [--no-open]; doctor [--live]; serve [--demo]; demo; demo-check; read --type steps --start YYYY-MM-DD --end YYYY-MM-DD; install --client codex|claude; disconnect");
+    console.log("fitbit-mcp: setup --credentials /absolute/client.json [--nutrition-write]; auth [--no-open]; doctor [--live]; serve [--demo]; demo; demo-check; read --type steps --start YYYY-MM-DD --end YYYY-MM-DD; report --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; compare --start YYYY-MM-DD --end YYYY-MM-DD [--demo]; install --client codex|claude; disconnect");
     return;
   }
   const demo = command === "demo" || command === "demo-check" || !!values.demo;
@@ -51,6 +52,14 @@ async function main() {
     else if (command === "doctor") {
       const config = await auth.config().catch(() => undefined), token = await auth.record();
       output = { node: process.versions.node, platform: process.platform, configured: !!config, connected: !!token, nutritionWrites: !!config?.nutritionWrite, grantedScopes: token?.scopes || [], storage: "Per-user local files, not encrypted by this application", live: values.live ? { reachable: !!await api.info() } : "Not requested" };
+    } else if (command === "report" || command === "compare") {
+      const range = rangeSchema.parse({ startDate: values.start, endDate: values.end });
+      const domains = domainsSchema.parse(values.domains?.split(","));
+      if (command === "report") output = await report(api, range.startDate, range.endDate, domains);
+      else {
+        const previous = comparisonRange(range.startDate, range.endDate, values["previous-start"], values["previous-end"]);
+        output = compareReports(await report(api, range.startDate, range.endDate, domains), await report(api, previous.startDate, previous.endDate, domains));
+      }
     } else if (command === "read") {
       const type = typeSchema.parse(values.type), range = rangeSchema.parse({ startDate: values.start, endDate: values.end });
       output = await api.points(type, range.startDate, range.endDate);

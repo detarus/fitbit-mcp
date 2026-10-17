@@ -7,6 +7,8 @@ it("packages plugin manifests and shares the server and skill directory", async 
   const claude = JSON.parse(await readFile(".claude-plugin/plugin.json", "utf8"));
   const mcp = JSON.parse(await readFile(".mcp.json", "utf8"));
   expect(codex.name).toBe(claude.name);
+  expect(codex.version).toBe(pkg.version);
+  expect(claude.version).toBe(pkg.version);
   expect(codex.skills).toBe("./skills/");
   expect(mcp.mcpServers.fitbit.command).toBe("fitbit-mcp");
 });

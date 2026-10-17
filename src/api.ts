@@ -16,7 +16,7 @@ export interface HealthApi {
   demo: boolean;
   accountKey(): Promise<string>;
   info(): Promise<unknown>;
-  points(type: DataType, start: string, end: string, pageToken?: string): Promise<Json>;
+  points(type: DataType, start: string, end: string, pageToken?: string, reconcile?: boolean): Promise<Json>;
   daily(type: DataType, start: string, end: string): Promise<Json>;
   create(type: "nutrition-log" | "hydration-log", body: Json): Promise<Json>;
   get(name: string): Promise<Json>;
@@ -76,18 +76,19 @@ export class GoogleHealth implements HealthApi {
     await this.auth.requireScope("settings.readonly");
     return this.request("users/me/pairedDevices");
   }
-  async points(type: DataType, start: string, end: string, pageToken = ""): Promise<Json> {
+  async points(type: DataType, start: string, end: string, pageToken = "", reconcile = false): Promise<Json> {
     await this.auth.requireScope(scopesFor[type]);
     let next = pageToken, points: Json[] = [];
     const seen = new Set<string>();
     for (let i = 0; i < 20; i++) {
       const params = new URLSearchParams({ filter: filterFor(type, start, end), pageSize: "25" });
       if (next) params.set("pageToken", next);
-      const page = await this.request("users/me/dataTypes/" + type + "/dataPoints?" + params);
+      if (reconcile) params.set("dataSourceFamily", "users/me/dataSourceFamilies/google-wearables");
+      const page = await this.request("users/me/dataTypes/" + type + "/dataPoints" + (reconcile ? ":reconcile" : "") + "?" + params);
       if (page.dataPoints && !Array.isArray(page.dataPoints)) throw new AppError("API_RESPONSE", "Unexpected data-point list.");
       points.push(...(page.dataPoints || []));
       next = page.nextPageToken || "";
-      if (!next) return { dataPoints: points, complete: true, source: "google-health", mode: "raw-list", note: "Raw sources may overlap; do not sum overlapping samples." };
+      if (!next) return { dataPoints: points, complete: true, source: "google-health", mode: reconcile ? "reconciled" : "raw-list", note: reconcile ? "Server-reconciled Google/Fitbit wearable sources." : "Raw sources may overlap; do not sum overlapping samples." };
       if (seen.has(next)) throw new AppError("PAGINATION", "Google repeated a page token; results are incomplete.");
       seen.add(next);
     }
@@ -116,13 +117,21 @@ export class DemoHealth implements HealthApi {
   async info() { return { demo: true, pairedDevices: [{ displayName: "Synthetic Fitbit Air" }] }; }
   async points(type: DataType, start: string, end: string) {
     if (type === "nutrition-log" || type === "hydration-log") return { demo: true, complete: true, dataPoints: [...this.records.values()].filter(p => p.name.includes("/" + type + "/")) };
-    if (type === "sleep") return { demo: true, complete: true, dataPoints: [{ name: "demo-sleep", sleep: { interval: { civilEndTime: civil(start) }, note: "Synthetic sample; not real sleep data" } }] };
+    if (type === "sleep") return {
+      demo: true, complete: true,
+      dataPoints: [{ dataPointName: "demo-sleep", sleep: { interval: { startTime: new Date(Date.parse(start) - 2 * 3600000).toISOString(), endTime: start + "T06:00:00Z", civilEndTime: civil(start) }, summary: { minutesAsleep: "420" }, metadata: { processed: true } } }],
+    };
+    if (type === "daily-resting-heart-rate" || type === "daily-heart-rate-variability") {
+      const key = type === "daily-resting-heart-rate" ? "dailyRestingHeartRate" : "dailyHeartRateVariability";
+      const value = type === "daily-resting-heart-rate" ? { beatsPerMinute: "60" } : { averageHeartRateVariabilityMilliseconds: 45 };
+      return { demo: true, complete: true, dataPoints: [{ [key]: { date: civil(start).date, ...value } }] };
+    }
     return { demo: true, complete: true, dataPoints: [], period: { start, end }, note: "No synthetic samples for this type; not a measured zero." };
   }
   async daily(type: DataType, start: string, end: string) {
-    const key = { steps: "steps", distance: "distance", "total-calories": "totalCalories", "active-zone-minutes": "activeZoneMinutes" }[type as "steps"];
+    const key = ({ steps: "steps", distance: "distance", "total-calories": "totalCalories", "active-zone-minutes": "activeZoneMinutes" } as Record<string, string>)[type];
     const points: Json[] = [];
-    for (let t = Date.parse(start); t < Date.parse(end); t += 86400000) points.push({ civilStartTime: civil(new Date(t).toISOString().slice(0, 10)), [key || type]: type === "steps" ? { countSum: 6500 + points.length * 250 } : { demoValue: 42 } });
+    for (let t = Date.parse(start); t < Date.parse(end); t += 86400000) points.push({ civilStartTime: civil(new Date(t).toISOString().slice(0, 10)), [key || type]: type === "steps" ? { countSum: String(6500 + points.length * 250) } : type === "distance" ? { millimetersSum: "5000000" } : type === "total-calories" ? { kcalSum: 2200 } : { sumInCardioHeartZone: "10", sumInPeakHeartZone: "5", sumInFatBurnHeartZone: "15" } });
     return { demo: true, rollupDataPoints: points };
   }
   async create(type: "nutrition-log" | "hydration-log", body: Json) {

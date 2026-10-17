@@ -56,3 +56,9 @@ This alpha does not yet provide a complete normalized daily/weekly health summar
 For the alpha, build from the repository and register the absolute Node executable and dist/cli.js with Codex/Claude Code. Plugins use the same installed binary and shared skill directory. The package is private to prevent accidental npm publication before release checks.
 
 No HTTP server for web/mobile chats is exposed. Demo mode makes no Google requests and uses synthetic data and an isolated temporary journal.
+
+## ADR-002: summaries and token refresh resilience (2026-10-17)
+
+Normalized summaries live in reports.ts and use civil-day activity rollups plus reconciled sleep/daily pulse/HRV. Raw lists remain available separately. Each metric retains units and quality; observed statistics are distinct from complete-period totals. Comparisons pair relative day positions. See reports.md for field mappings, missing-data policy and DST/overlap handling.
+
+Authentication now persists rotated credentials before token-info lookup. If metadata lookup fails, scopes remain unverified and the next request rechecks metadata without losing the rotated refresh token. Known invalid_grant/invalid_token clears the local token record and returns AUTH_EXPIRED. Transient failures retain credentials and return AUTH_NETWORK. Callback, state, PKCE, timeout and concurrent refresh paths have synthetic tests; real Google authorization remains a separate acceptance check.

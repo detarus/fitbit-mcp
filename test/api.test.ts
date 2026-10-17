@@ -22,6 +22,12 @@ describe("Google Health transport", () => {
     expect((await api.points("heart-rate", "2026-10-01", "2026-10-02", first.nextPageToken)).complete).toBe(true);
     expect(fetcher.mock.calls[20][0]).toContain("pageToken=cursor-20");
   });
+  it("uses reconciliation and explicit wearable sources for normalized reports", async () => {
+    const fetcher = vi.fn(async () => response({ dataPoints: [] }));
+    await new GoogleHealth(auth, fetcher).points("sleep", "2026-10-01", "2026-10-02", undefined, true);
+    expect(fetcher.mock.calls[0][0]).toContain("dataPoints:reconcile?");
+    expect(fetcher.mock.calls[0][0]).toContain("dataSourceFamily=users%2Fme%2FdataSourceFamilies%2Fgoogle-wearables");
+  });
   it("does not retry a failed create or echo upstream body secrets", async () => {
     const fetcher = vi.fn(async () => response({ error: "synthetic-private-value" }, 503));
     const api = new GoogleHealth(auth, fetcher);

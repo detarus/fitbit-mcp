@@ -1,6 +1,6 @@
 {
   "name": "fitbit",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Fitbit MCP reads and reviewed meal/water logs",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",

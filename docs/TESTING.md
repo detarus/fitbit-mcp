@@ -33,3 +33,14 @@ Unknown outcomes are never automatically resubmitted. Inspect the diary manually
 The alpha has no normal web/mobile chat connection and no published npm package. Root plugin manifests and shared skills are candidates for local client testing, not a claim of validated plugin installation.
 
 Report only OS/client versions, pass/fail by step and redacted error code/HTTP status. Never share credentials, tokens, callback URLs or health records. See SECURITY.md.
+
+## Summary and comparison checks
+
+```sh
+node dist/cli.js report --demo --start 2026-10-01 --end 2026-10-08
+node dist/cli.js compare --demo --start 2026-10-08 --end 2026-10-15 --domains activity
+```
+
+MCP tools: fitbit_summary and fitbit_compare. Check units, daily quality, observedDays/expectedDays and null totals for incomplete coverage. Comparisons default to the preceding equal-length window and use paired day positions. See [reports.md](reports.md).
+
+AUTH_EXPIRED requires reauthorization. AUTH_NETWORK retains credentials and can be retried when connectivity returns. fitbit_status is explicit about local-only state.

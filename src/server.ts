@@ -1,3 +1,4 @@
+import { version } from "./version.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
@@ -5,10 +6,12 @@ import type { Auth } from "./auth.js";
 import { type HealthApi, type Json, scopesFor } from "./api.js";
 import { Operations } from "./operations.js";
 import { publicError } from "./errors.js";
-import { rangeSchema, typeSchema, types, mealSchema, waterSchema } from "./schema.js";
+import { dateSchema, rangeSchema, typeSchema, types, mealSchema, waterSchema } from "./schema.js";
+
+import { report, compareReports, comparisonRange, domainsSchema } from "./reports.js";
 
 export function createMcp(api: HealthApi, ops: Operations, auth?: Auth) {
-  const server = new McpServer({ name: "fitbit-mcp", version: "0.1.0-alpha.1" });
+  const server = new McpServer({ name: "fitbit-mcp", version });
   const read = { readOnlyHint: true, destructiveHint: false, openWorldHint: !api.demo };
   const mutate = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: !api.demo };
   const result = async (fn: () => Promise<unknown>) => {
@@ -22,9 +25,8 @@ export function createMcp(api: HealthApi, ops: Operations, auth?: Auth) {
     description: "Local connection metadata and implemented types. Declared support is not proof of data availability on this device. Does not return credentials.",
     inputSchema: {}, annotations: { ...read, openWorldHint: false },
   }, () => result(async () => {
-    const record = await auth?.record();
-    const config = auth ? await auth.config().catch(() => undefined) : undefined;
-    return { demo: api.demo, configured: api.demo || !!config, connected: api.demo || !!record, nutritionWrites: api.demo || !!config?.nutritionWrite, grantedScopes: record?.scopes || [], supportedTypes: types.map(type => ({ type, readScope: scopesFor[type] })), liveAccountVerified: false };
+    const local = auth ? await auth.status() : { configured: true, connected: true, nutritionWritesConfigured: true, nutritionWritePermission: true, grantedScopes: [] as string[], tokenState: "synthetic" };
+    return { demo: api.demo, ...local, supportedTypes: types.map(type => ({ type, readScope: scopesFor[type], permissionGranted: api.demo || local.grantedScopes.includes("https://www.googleapis.com/auth/googlehealth." + scopesFor[type]) })), liveAccountVerified: false };
   }));
   server.registerTool("fitbit_devices", { description: "Read paired device metadata.", inputSchema: {}, annotations: read }, () => result(() => api.info()));
   server.registerTool("fitbit_request_id", { description: "Generate a UUID for one new meal/water draft. Reuse the same ID on retries; use a new ID for a new occurrence.", inputSchema: {}, annotations: { ...read, openWorldHint: false } }, () => result(async () => ({ requestId: randomUUID() })));
@@ -45,6 +47,17 @@ export function createMcp(api: HealthApi, ops: Operations, auth?: Auth) {
       catch (e) { domains[type] = { error: publicError(e) }; }
     }
     return { demo: api.demo, ...range, fetchedAt: new Date().toISOString(), timeBasis: "Google Health civil calendar dates with provider offsets; not UTC midnight buckets", dataSourceFamily: "google-wearables", domains };
+  }));
+  server.registerTool("fitbit_summary", {
+    description: "Normalized daily health metrics and period statistics for 1–14 civil days, end exclusive. Reconciles wearable sources; sleep is grouped by wake date. Missing, conflicting, partial and failed metrics remain explicit. Totals are null unless all requested days are observed.",
+    inputSchema: { ...rangeSchema.shape, domains: domainsSchema }, annotations: read,
+  }, args => result(() => report(api, args.startDate, args.endDate, args.domains)));
+  server.registerTool("fitbit_compare", {
+    description: "Compare equal calendar windows using code-calculated paired-day means and coverage. Defaults to the preceding window of the same length. No medical or recovery score is invented.",
+    inputSchema: { ...rangeSchema.shape, domains: domainsSchema, previousStartDate: dateSchema.optional(), previousEndDate: dateSchema.optional() }, annotations: read,
+  }, args => result(async () => {
+    const previous = comparisonRange(args.startDate, args.endDate, args.previousStartDate, args.previousEndDate);
+    return compareReports(await report(api, args.startDate, args.endDate, args.domains), await report(api, previous.startDate, previous.endDate, args.domains));
   }));
   server.registerTool("fitbit_preview_meal", {
     description: "Create a local meal draft ONLY. Values apply to the whole dish portion, not per 100g. Review assumptions, portions, date/offset and all K/P/F/C values before saving. Photo estimates are approximate.",

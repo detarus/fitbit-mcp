@@ -14,7 +14,7 @@ const configSchema = z.object({
   nutritionWrite: z.boolean(),
 });
 export type Config = z.infer<typeof configSchema>;
-export type TokenRecord = { credentials: Credentials; scopes: string[]; accountId: string };
+export type TokenRecord = { credentials: Credentials; scopes: string[]; accountId: string; scopeCheckRequired?: boolean };
 export function browser(url: string) {
   const command = process.platform === "darwin" ? "open" : process.platform === "win32" ? "rundll32.exe" : "xdg-open";
   const args = process.platform === "win32" ? ["url.dll,FileProtocolHandler", url] : [url];
@@ -22,8 +22,18 @@ export function browser(url: string) {
   child.on("error", () => { process.stderr.write("Open the displayed sign-in URL in your system browser.\n"); });
   child.unref();
 }
+type AuthRuntime = {
+  client?: (config: Config, redirect?: string) => OAuth2Client;
+  fetch?: typeof fetch;
+  onAuthorize?: (url: string) => void;
+  openBrowser?: (url: string) => void;
+  timeoutMs?: number;
+};
 export class Auth {
-  constructor(public store: Store) {}
+  constructor(public store: Store, private runtime: AuthRuntime = {}) {}
+  private client(config: Config, redirect?: string) {
+    return this.runtime.client?.(config, redirect) || new OAuth2Client(config.clientId, config.clientSecret, redirect);
+  }
   async config() {
     const value = await this.store.read("config.json");
     if (!value) throw new AppError("NOT_CONFIGURED", "Run setup --credentials /absolute/path/client.json first.");
@@ -45,8 +55,8 @@ export class Auth {
     return { configured: true, nutritionWrite, next: "Run auth in your terminal." };
   }
   async login(open = true) {
-    const config = await this.config();
     return this.store.locked("session", () => this.store.locked("auth", async () => {
+      const config = await this.config();
       const state = randomBytes(32).toString("hex");
       const server = createServer();
       await new Promise<void>((resolve, reject) => {
@@ -56,7 +66,7 @@ export class Auth {
       const address = server.address();
       if (!address || typeof address === "string") { server.close(); throw new AppError("OAUTH", "Cannot open local callback."); }
       const redirect = "http://127.0.0.1:" + address.port + "/callback";
-      const client = new OAuth2Client(config.clientId, config.clientSecret, redirect);
+      const client = this.client(config, redirect);
       const codes = await client.generateCodeVerifierAsync();
       const scopes = [...baseScopes, ...(config.nutritionWrite ? ["nutrition.writeonly"] : [])].map(s => scopePrefix + s);
       const url = client.generateAuthUrl({
@@ -65,7 +75,7 @@ export class Auth {
       });
       try {
         const code = await new Promise<string>((resolve, reject) => {
-          const timer = setTimeout(() => { reject(new AppError("OAUTH_TIMEOUT", "Sign-in timed out. Run auth again.")); }, 180000);
+          const timer = setTimeout(() => { reject(new AppError("OAUTH_TIMEOUT", "Sign-in timed out. Run auth again.")); }, this.runtime.timeoutMs ?? 180000);
           server.on("request", (req, res) => {
             const u = new URL(req.url || "/", redirect);
             const headers = { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
@@ -83,12 +93,13 @@ export class Auth {
           process.stderr.write("This tool reads Fitbit-synced health data. Results requested by an AI client may go to its provider.\n");
           process.stderr.write(config.nutritionWrite ? "Nutrition and water writes are enabled; saving still requires a preview and explicit commit.\n" : "Read-only configuration.\n");
           process.stderr.write("Sign in: " + url + "\n");
-          if (open) browser(url);
+          this.runtime.onAuthorize?.(url);
+          if (open) (this.runtime.openBrowser || browser)(url);
         });
         const { tokens } = await client.getToken({ code, codeVerifier: codes.codeVerifier });
         if (!tokens.access_token || !tokens.refresh_token) throw new AppError("OAUTH", "No offline token returned. Revoke the old grant in Google Account settings and run auth again.");
         const info = await client.getTokenInfo(tokens.access_token);
-        const identityResponse = await fetch("https://health.googleapis.com/v4/users/me/identity", {
+        const identityResponse = await (this.runtime.fetch || fetch)("https://health.googleapis.com/v4/users/me/identity", {
           headers: { Authorization: "Bearer " + tokens.access_token }, signal: AbortSignal.timeout(20000), redirect: "error",
         });
         if (!identityResponse.ok) throw new AppError("IDENTITY", "Google Health identity is unavailable. Sign in to Google Health mobile first and check granted health permissions.");
@@ -107,20 +118,43 @@ export class Auth {
     return this.store.locked("auth", async () => {
       const config = await this.config(), record = await this.record();
       if (!record?.credentials.refresh_token) throw new AppError("AUTH_REQUIRED", "Run auth in your terminal.");
-      if (!force && record.credentials.access_token && (record.credentials.expiry_date || 0) > Date.now() + 60000) return record.credentials.access_token;
+      const valid = !!record.credentials.access_token && (record.credentials.expiry_date || 0) > Date.now() + 60000;
+      if (!force && valid && !record.scopeCheckRequired) return record.credentials.access_token!;
       try {
-        const client = new OAuth2Client(config.clientId, config.clientSecret);
+        const client = this.client(config);
         client.setCredentials(record.credentials);
-        const { credentials } = await client.refreshAccessToken();
-        if (!credentials.access_token) throw new Error("No access token");
+        const credentials = !force && valid ? record.credentials : (await client.refreshAccessToken()).credentials;
+        if (!credentials.access_token) throw new AppError("AUTH_RESPONSE", "Google returned no usable access token.");
+        const next: TokenRecord = { credentials: { ...credentials, refresh_token: credentials.refresh_token || record.credentials.refresh_token }, scopes: [], accountId: record.accountId, scopeCheckRequired: true };
+        // Save rotated credentials before metadata lookup; a transient info failure must not lose them.
+        await this.store.write("tokens.json", next);
         const info = await client.getTokenInfo(credentials.access_token);
-        const next = { credentials: { ...credentials, refresh_token: credentials.refresh_token || record.credentials.refresh_token }, scopes: info.scopes, accountId: record.accountId };
+        next.scopes = info.scopes; next.scopeCheckRequired = false;
         await this.store.write("tokens.json", next);
         return credentials.access_token;
-      } catch {
-        throw new AppError("AUTH_REFRESH_FAILED", "Could not refresh Google access. Run auth again if the grant expired (Testing grants commonly expire after 7 days); check connectivity otherwise.");
+      } catch (error) {
+        if (error instanceof AppError) throw error;
+        const code = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+        if (code === "invalid_grant" || code === "invalid_token") {
+          await this.store.remove("tokens.json");
+          throw new AppError("AUTH_EXPIRED", "Google authorization expired or was revoked. Run auth again; Testing grants commonly expire after 7 days.");
+        }
+        if (code === "invalid_client") throw new AppError("AUTH_CLIENT", "Google rejected the OAuth client. Check Desktop credentials and run setup/auth again.");
+        throw new AppError("AUTH_NETWORK", "Google authorization could not be refreshed or checked. Credentials were retained; check connectivity and retry.");
       }
     });
+  }
+  async status() {
+    const config = await this.config().catch(() => undefined), record = await this.record();
+    const tokenState = !record ? "missing" : record.scopeCheckRequired ? "scope-check-needed" : !record.credentials.refresh_token ? "invalid" : (record.credentials.expiry_date || 0) > Date.now() + 60000 ? "locally-current" : "refresh-needed";
+    return {
+      configured: !!config, connected: !!record?.credentials.refresh_token,
+      connectionCheck: "local-state-only; use doctor --live to verify network access",
+      tokenState, expiresAt: record?.credentials.expiry_date ? new Date(record.credentials.expiry_date).toISOString() : null,
+      nutritionWritesConfigured: !!config?.nutritionWrite,
+      nutritionWritePermission: !!record?.scopes.includes(scopePrefix + "nutrition.writeonly"),
+      grantedScopes: record?.scopes || [],
+    };
   }
   async requireScope(scope: string) {
     await this.accessToken();

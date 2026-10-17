@@ -19,39 +19,37 @@ jobs:
         with:
           node-version: '24'
       - uses: pnpm/action-setup@v4
-      - name: Install
-        shell: bash
-        run: |
-          if test -f pnpm-lock.yaml; then pnpm install --frozen-lockfile; else pnpm install --no-frozen-lockfile; fi
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
       - name: Build, typecheck and test
         run: pnpm check
       - name: Demo smoke check
         run: node dist/cli.js demo-check
-      - name: Package dry run
-        run: npm pack --dry-run
-      - name: Upload generated lockfile
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install packed artifact outside the repository and test it
+        run: node scripts/package-smoke.mjs
+      - name: Upload tested package
         uses: actions/upload-artifact@v4
         with:
-          name: pnpm-lock
-          path: pnpm-lock.yaml
-  lockfile:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: check
+          name: package-${{ matrix.os }}
+          path: '*.tgz'
+  client-config:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 15
+    env:
+      DISABLE_AUTOUPDATER: '1'
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1'
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/setup-node@v4
         with:
-          name: pnpm-lock
-      - name: Save initial dependency lock after successful checks
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Validate Claude plugin with the actual CLI
+        run: npm exec --yes --package=@anthropic-ai/claude-code@2.1.302 -- claude plugin validate . --strict
+      - name: Register the demo MCP with actual Codex CLI
         shell: bash
         run: |
-          if git ls-files --error-unmatch pnpm-lock.yaml >/dev/null 2>&1; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pnpm-lock.yaml
-          git commit -m "build: lock dependencies verified by the initial CI matrix"
-          git push
+          npm exec --yes --package=@openai/codex@0.163.0 -- codex mcp add fitbit-ci -- node "$PWD/dist/cli.js" serve --demo
+          npm exec --yes --package=@openai/codex@0.163.0 -- codex mcp get fitbit-ci --json
