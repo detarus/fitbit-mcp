@@ -51,7 +51,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Install pinned official client CLIs
-        run: npm install --global --ignore-scripts --no-audit --no-fund @openai/codex@0.163.0 @anthropic-ai/claude-code@2.1.302
+        run: npm install --global --no-audit --no-fund @openai/codex@0.163.0 @anthropic-ai/claude-code@2.1.302
+      - name: Verify actual client executables
+        run: |
+          codex --version
+          claude --version
+          claude mcp add --help
       - name: Install MCP and shared skills for both clients, including repeat installation
         run: |
           node dist/cli.js install --client codex
